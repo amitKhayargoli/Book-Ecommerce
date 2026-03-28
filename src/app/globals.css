@@ -1,26 +1,61 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Epilogue:wght@400;500;600;700;800;900&display=swap');
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-background: #0B0B0C;
+  --color-foreground: #FFFFFF;
+  --color-card: #111111;
+  --color-card-hover: #1a1a1a;
+  --color-text-secondary: #A1A1AA;
+  --color-romance: #FF4D6D;
+  --color-comedy: #FFD60A;
+  --color-tragedy: #6A4C93;
+  --color-fantasy: #8338EC;
+  --color-scifi: #3A86FF;
+  --color-mystery: #118AB2;
+  --color-thriller: #EF233C;
+  --color-horror: #8B0000;
+  --color-adventure: #06D6A0;
+  --color-drama: #F77F00;
+  --font-sans: 'Inter', sans-serif;
+  --font-display: 'Epilogue', sans-serif;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+* {
+  cursor: none;
+}
+
+html {
+  scroll-behavior: smooth;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--color-background);
+  color: var(--color-foreground);
+  font-family: var(--font-sans);
+  overflow-x: hidden;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #0B0B0C;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #333;
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #555;
+}
+
+/* Selection */
+::selection {
+  background: rgba(255, 77, 109, 0.3);
+  color: #fff;
 }

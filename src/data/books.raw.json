@@ -1,0 +1,22 @@
+[
+  {
+    "id": "6749840232",
+    "title": "The Night We Met",
+    "author": "Abby Jimenez",
+    "frontendGenres": [
+      "Romance",
+      "Historical Fiction"
+    ],
+    "appleBooksUrl": "https://books.apple.com/us/book/the-night-we-met/id6749840232?uo=2",
+    "sourceCoverUrl": "https://is1-ssl.mzstatic.com/image/thumb/Publication221/v4/c8/db/cb/c8dbcba3-48ff-a065-24bc-440b89a85e71/9781538759233.jpg/0x170bb.png",
+    "localCoverPath": "/books/covers/6749840232.jpg",
+    "mockupFrontPath": "/books/mockups/6749840232-front.png",
+    "mockupAnglePath": "/books/mockups/6749840232-angle.png",
+    "mockupHeroPath": "/books/mockups/6749840232-hero.png",
+    "popularityRank": 1,
+    "chartLabel": "Top 1 in Romance",
+    "chartUrl": "https://itunes.apple.com/us/rss/toppaidebooks/limit=10/genre=9003/json",
+    "sourceType": "apple-chart",
+    "verified": true
+  }
+]
