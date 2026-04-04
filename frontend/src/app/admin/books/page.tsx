@@ -1,8 +1,5 @@
-import CustomCursor from "../../../components/CustomCursor";
-import Navbar from "../../../components/Navbar";
-import Footer from "../../../components/Footer";
 import { BooksCatalog } from "./ui/BooksCatalog";
-import booksData from "../../../data/books.json";
+import { handleGetBooks } from "./actions/book-actions";
 
 export interface AdminBookItem {
   id: string;
@@ -16,20 +13,50 @@ export interface AdminBookItem {
   verified?: boolean;
 }
 
-export default function AdminBooksPage() {
-  const books = booksData as AdminBookItem[];
+interface ApiBookItem {
+  id: string;
+  title: string;
+  author?: { name?: string };
+  genres?: Array<{ name?: string }>;
+  coverImage?: string;
+}
+
+function isApiBookArray(value: unknown): value is ApiBookItem[] {
+  if (!Array.isArray(value)) return false;
+
+  return value.every((item) => {
+    if (!item || typeof item !== "object") return false;
+    const candidate = item as { id?: unknown; title?: unknown };
+    return (
+      typeof candidate.id === "string" &&
+      typeof candidate.title === "string"
+    );
+  });
+}
+
+export default async function AdminBooksPage() {
+  const result = await handleGetBooks();
+
+  const books: AdminBookItem[] = isApiBookArray(result.data)
+    ? result.data.map((book) => ({
+        id: book.id,
+        title: book.title,
+        author: book.author?.name ?? "Unknown author",
+        frontendGenres: (book.genres ?? [])
+          .map((genre) => genre.name)
+          .filter((name): name is string => Boolean(name)),
+        sourceCoverUrl: book.coverImage,
+        sourceType: "database",
+        verified: true,
+      }))
+    : [];
 
   return (
-    <>
-      <CustomCursor />
-      <Navbar />
-      <main className="min-h-screen bg-background pt-24 pb-20">
-        <div className="max-w-[1400px] mx-auto px-6 md:px-10">
-          <BooksCatalog books={books} />
-        </div>
-      </main>
-      <Footer />
-    </>
+    <main className="min-h-screen bg-background pt-24 pb-20">
+      <div className="max-w-[1400px] mx-auto px-6 md:px-10">
+        <BooksCatalog books={books} />
+      </div>
+    </main>
   );
 }
 

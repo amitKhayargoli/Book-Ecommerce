@@ -1,5 +1,9 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import CustomCursor from "../components/CustomCursor";
+import Navbar from "../components/Navbar";
+import Footer from "../components/Footer";
+import ScrollToTop from "../components/ScrollToTop";
 
 export const metadata: Metadata = {
   title: "BOOK Premium Book Store",
@@ -13,7 +17,13 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className="antialiased">
-      <body className="min-h-screen">{children}</body>
+      <body className="min-h-screen">
+        <ScrollToTop />
+        <CustomCursor />
+        <Navbar />
+        {children}
+        <Footer />
+      </body>
     </html>
   );
 }
