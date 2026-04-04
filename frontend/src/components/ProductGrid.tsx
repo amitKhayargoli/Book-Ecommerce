@@ -27,10 +27,9 @@ export default function ProductGrid() {
   return (
     <section className="py-28 px-6 md:px-10 max-w-[1400px] mx-auto">
       <motion.div
-        initial={{ opacity: 0, y: 20 }}
+        initial={false}
         whileInView={{ opacity: 1, y: 0 }}
-        viewport={{ once: true, margin: "-100px" }}
-        transition={{ duration: 0.6 }}
+        viewport={{ once: false, margin: "-100px" }}
         className="mb-14"
       >
         <p className="text-text-secondary text-sm tracking-[0.3em] uppercase mb-3">Collection</p>
@@ -41,7 +40,7 @@ export default function ProductGrid() {
         variants={containerVariants}
         initial="hidden"
         whileInView="visible"
-        viewport={{ once: true, margin: "-100px" }}
+        viewport={{ once: false, margin: "-100px" }}
         className="grid grid-cols-1 md:grid-cols-2 gap-8"
       >
         {books.map((book) => (
@@ -82,7 +81,6 @@ export default function ProductGrid() {
               <p className="text-romance font-bold text-xl">{book.price}</p>
             </div>
 
-            {/* View Book CTA */}
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={hoveredId === book.id ? { opacity: 1, y: 0 } : { opacity: 0, y: 20 }}

@@ -7,9 +7,9 @@ export default function Statement() {
     <section className="py-28 px-6 md:px-10 max-w-[1400px] mx-auto">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-16 md:gap-20 items-start">
         <motion.div
-          initial={{ opacity: 0, x: -40 }}
+          initial={false}
           whileInView={{ opacity: 1, x: 0 }}
-          viewport={{ once: true, margin: "-100px" }}
+          viewport={{ once: false, margin: "-100px" }}
           transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1] }}
         >
           <h2 className="font-display text-4xl md:text-5xl lg:text-6xl font-black leading-[1.1] tracking-tight">
@@ -24,9 +24,9 @@ export default function Statement() {
         </motion.div>
 
         <motion.div
-          initial={{ opacity: 0, x: 40 }}
+          initial={false}
           whileInView={{ opacity: 1, x: 0 }}
-          viewport={{ once: true, margin: "-100px" }}
+          viewport={{ once: false, margin: "-100px" }}
           transition={{ duration: 0.8, delay: 0.2, ease: [0.22, 1, 0.36, 1] }}
           className="flex flex-col gap-6 md:pt-4"
         >
