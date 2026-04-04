@@ -33,9 +33,12 @@ export function validateBookForm(data: BookFormData): ValidationErrors {
   
   if (!data.title.trim()) errors.title = "Title is required";
   if (!data.slug.trim()) errors.slug = "Slug is required";
+  if (!data.author.trim()) errors.author = "Author is required";
   
   const price = Number(data.price);
-  if (isNaN(price) || price < 0) errors.price = "Price must be a positive number";
+  if (!Number.isFinite(price) || price <= 0) {
+    errors.price = "Price must be greater than 0";
+  }
   
   if (data.discountPrice) {
     const discountPrice = Number(data.discountPrice);
@@ -48,7 +51,9 @@ export function validateBookForm(data: BookFormData): ValidationErrors {
   
   if (data.pages) {
     const pages = Number(data.pages);
-    if (isNaN(pages) || pages < 0) errors.pages = "Pages must be 0 or more";
+    if (!Number.isFinite(pages) || pages <= 0) {
+      errors.pages = "Pages must be greater than 0";
+    }
   }
   
   if (data.publishedYear) {

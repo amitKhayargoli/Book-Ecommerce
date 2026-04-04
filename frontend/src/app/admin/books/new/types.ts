@@ -1,4 +1,4 @@
-export type BookStatus = 'DRAFT' | 'PUBLISHED';
+export type BookStatus = "DRAFT" | "PUBLISHED";
 
 export interface OpenLibraryResult {
   key: string;

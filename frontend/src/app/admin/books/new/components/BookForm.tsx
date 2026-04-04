@@ -84,7 +84,7 @@ export function BookForm({ data, onChange, errors }: BookFormProps) {
 
         <BookFormSection title="2. Catalog Information" description="Metadata for library and search categorization.">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-            <InputWrapper label="Author">
+            <InputWrapper label="Author" error={errors.author} required>
               <input type="text" name="author" value={data.author} onChange={handleChange} className="w-full px-5 py-3 bg-white/[0.03] border border-white/5 rounded-2xl text-white focus:outline-none focus:ring-2 focus:ring-white/10 focus:border-white/20 transition-all" />
             </InputWrapper>
             
