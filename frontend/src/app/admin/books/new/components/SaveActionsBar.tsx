@@ -5,9 +5,10 @@ interface SaveActionsBarProps {
   onClear: () => void;
   onResetImport: () => void;
   hasImportedData: boolean;
+  isSaving?: boolean;
 }
 
-export function SaveActionsBar({ onSave, onClear, onResetImport, hasImportedData }: SaveActionsBarProps) {
+export function SaveActionsBar({ onSave, onClear, onResetImport, hasImportedData, isSaving = false }: SaveActionsBarProps) {
   return (
     <div className="sticky bottom-8 z-20 flex items-center justify-between p-5 bg-[#0B0B0C]/60 backdrop-blur-3xl border border-white/10 rounded-[24px] shadow-2xl mt-12 w-full">
       <div className="flex items-center gap-4">
@@ -31,14 +32,15 @@ export function SaveActionsBar({ onSave, onClear, onResetImport, hasImportedData
         )}
       </div>
       
-      <button
-        type="button"
-        onClick={onSave}
-        className="flex items-center gap-3 px-8 py-3.5 text-sm font-black text-black bg-white hover:bg-white/90 rounded-2xl transition-all shadow-xl shadow-white/5 active:scale-95 uppercase tracking-tighter cursor-none"
-      >
-        <Save className="w-4 h-4" />
-        Save Draft Locally
-      </button>
-    </div>
+        <button
+          type="button"
+          onClick={onSave}
+          disabled={isSaving}
+          className="flex items-center gap-3 px-8 py-3.5 text-sm font-black text-black bg-white hover:bg-white/90 rounded-2xl transition-all shadow-xl shadow-white/5 active:scale-95 uppercase tracking-tighter cursor-none"
+        >
+          <Save className="w-4 h-4" />
+          {isSaving ? "Saving..." : "Create Book"}
+        </button>
+      </div>
   );
 }

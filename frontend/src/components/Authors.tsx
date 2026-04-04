@@ -12,9 +12,9 @@ export default function Authors() {
     <section className="py-28 px-6 md:px-10 max-w-[1400px] mx-auto">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-16 md:gap-20 items-start">
         <motion.div
-          initial={{ opacity: 0, x: -40 }}
+          initial={false}
           whileInView={{ opacity: 1, x: 0 }}
-          viewport={{ once: true, margin: "-100px" }}
+          viewport={{ once: false, margin: "-100px" }}
           transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1] }}
         >
           <p className="text-text-secondary text-sm tracking-[0.3em] uppercase mb-4">Writers</p>
@@ -33,23 +33,22 @@ export default function Authors() {
         </motion.div>
 
         <motion.div
-          initial={{ opacity: 0, x: 40 }}
+          initial={false}
           whileInView={{ opacity: 1, x: 0 }}
-          viewport={{ once: true, margin: "-100px" }}
+          viewport={{ once: false, margin: "-100px" }}
           transition={{ duration: 0.8, delay: 0.2, ease: [0.22, 1, 0.36, 1] }}
           className="grid grid-cols-2 gap-6"
         >
           {authors.map((author, i) => (
             <motion.div
               key={author.name}
-              initial={{ opacity: 0, y: 30 }}
+              initial={false}
               whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
+              viewport={{ once: false }}
               transition={{ duration: 0.6, delay: 0.3 + i * 0.15 }}
               data-cursor-hover
               className="group"
             >
-              {/* Author portrait placeholder */}
               <div className="aspect-[3/4] bg-card rounded-lg mb-4 overflow-hidden relative">
                 <div className="absolute inset-0 bg-gradient-to-b from-white/5 to-transparent" />
                 <div className="absolute inset-0 flex items-center justify-center">
@@ -69,7 +68,6 @@ export default function Authors() {
                     />
                   </svg>
                 </div>
-                {/* Hover overlay */}
                 <div className="absolute inset-0 bg-white/0 group-hover:bg-white/5 transition-colors duration-500" />
               </div>
               <h3 className="font-display text-base font-semibold mb-0.5">{author.name}</h3>

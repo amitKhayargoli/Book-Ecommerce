@@ -18,7 +18,6 @@ export default function Hero() {
 
   return (
     <section ref={ref} className="relative h-screen flex items-center justify-center overflow-hidden">
-      {/* Background text */}
       <motion.h1
         style={{ y: useTransform(scrollYProgress, [0, 1], [0, 100]) }}
         className="absolute font-display text-[20vw] md:text-[18vw] font-black text-white/[0.03] leading-none select-none tracking-tighter"
@@ -26,7 +25,6 @@ export default function Hero() {
         BOOK
       </motion.h1>
 
-      {/* Floating book stack */}
       <motion.div style={{ y, opacity }} className="relative z-10 flex items-end justify-center gap-0">
         {heroBooks.map((book, i) => (
           <motion.div
@@ -44,7 +42,6 @@ export default function Hero() {
               <Image
                 src={book.src}
                 alt={book.alt}
-                // 220
                 width={250}
                 height={320}
                 className="select-none"
@@ -55,7 +52,6 @@ export default function Hero() {
         ))}
       </motion.div>
 
-      {/* CTA */}
       <motion.div
         initial={{ opacity: 0, y: 30 }}
         animate={{ opacity: 1, y: 0 }}
