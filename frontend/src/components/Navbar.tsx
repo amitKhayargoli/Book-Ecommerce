@@ -3,12 +3,15 @@
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import Link from "next/link";
+import { signOut, useSession } from "next-auth/react";
+import { useCart } from "./CartProvider";
 
-const navLeft = ["Books", "Writers", "Articles", "Characters"];
-const navRight = ["Contribute"];
+const navLeft = ["Books", "Writers"];
 
 export default function Navbar() {
   const [scrolled, setScrolled] = useState(false);
+  const { data: session } = useSession();
+  const { count, bumpKey } = useCart();
 
   useEffect(() => {
     const handleScroll = () => setScrolled(window.scrollY > 50);
@@ -54,28 +57,57 @@ export default function Navbar() {
 
         {/* Right nav */}
         <div className="flex items-center gap-6">
-          {navRight.map((item) => (
-            <Link
-              key={item}
-              href="#"
-              className="relative hidden md:block text-sm text-text-secondary hover:text-white transition-colors duration-300 group"
-            >
-              {item}
-              <span className="absolute -bottom-1 left-0 w-0 h-[1px] bg-white group-hover:w-full transition-all duration-300" />
-            </Link>
-          ))}
+          {session?.user ? (
+            <>
+              <Link
+                href="/wishlist"
+                className="relative hidden md:block text-sm text-text-secondary hover:text-white transition-colors duration-300 group"
+              >
+                Wishlist
+                <span className="absolute -bottom-1 left-0 w-0 h-[1px] bg-white group-hover:w-full transition-all duration-300" />
+              </Link>
+              <button
+                onClick={() => signOut({ callbackUrl: "/login" })}
+                className="relative hidden md:block text-sm text-text-secondary hover:text-white transition-colors duration-300 group"
+              >
+                Logout
+                <span className="absolute -bottom-1 left-0 w-0 h-[1px] bg-white group-hover:w-full transition-all duration-300" />
+              </button>
+            </>
+          ) : (
+            <>
+              <Link
+                href="/login"
+                className="relative hidden md:block text-sm text-text-secondary hover:text-white transition-colors duration-300 group"
+              >
+                Login
+                <span className="absolute -bottom-1 left-0 w-0 h-[1px] bg-white group-hover:w-full transition-all duration-300" />
+              </Link>
+              <Link
+                href="/signup"
+                className="relative hidden md:block text-sm text-text-secondary hover:text-white transition-colors duration-300 group"
+              >
+                Register
+                <span className="absolute -bottom-1 left-0 w-0 h-[1px] bg-white group-hover:w-full transition-all duration-300" />
+              </Link>
+            </>
+          )}
           <Link
-            href="#"
-            className="text-sm text-text-secondary hover:text-white transition-colors duration-300"
+            href="/cart"
+            className="inline-flex items-center gap-2 text-sm text-text-secondary hover:text-white transition-colors duration-300"
           >
-            Cart (0)
+            <span>Cart</span>
+            <motion.span
+              key={bumpKey}
+              initial={{ scale: 1 }}
+              animate={{ scale: [1, 1.22, 1] }}
+              transition={{ duration: 0.3, ease: "easeOut" }}
+              className="inline-flex min-w-6 h-6 px-2 items-center justify-center rounded-full bg-white/10 border border-white/15 text-xs font-semibold text-white"
+            >
+              {count}
+            </motion.span>
           </Link>
-          <button className="text-text-secondary hover:text-white transition-colors duration-300">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <circle cx="11" cy="11" r="8" />
-              <path d="M21 21l-4.35-4.35" />
-            </svg>
-          </button>
+
         </div>
       </nav>
     </motion.header>
