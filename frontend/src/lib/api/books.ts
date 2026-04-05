@@ -1,4 +1,5 @@
 import { api } from "../api-client";
+import { AxiosRequestConfig } from "axios";
 
 export interface BookPayload {
   title: string;
@@ -29,17 +30,17 @@ export interface BookResponse {
 }
 
 export const bookEndpoints = {
-  createBook: (payload: BookPayload) =>
-    api.post<BookResponse>("/api/books", payload),
+  createBook: (payload: BookPayload, config?: AxiosRequestConfig) =>
+    api.post<BookResponse>("/api/books", payload, config),
 
   getBooks: () => api.get<BookResponse>("/api/books"),
 
   getBookById: (id: string) =>
     api.get<BookResponse>(`/api/books/${id}`),
 
-  updateBook: (id: string, payload: Partial<BookPayload>) =>
-    api.put<BookResponse>(`/api/books/${id}`, payload),
+  updateBook: (id: string, payload: Partial<BookPayload>, config?: AxiosRequestConfig) =>
+    api.put<BookResponse>(`/api/books/${id}`, payload, config),
 
-  deleteBook: (id: string) =>
-    api.delete<BookResponse>(`/api/books/${id}`),
+  deleteBook: (id: string, config?: AxiosRequestConfig) =>
+    api.delete<BookResponse>(`/api/books/${id}`, config),
 };
