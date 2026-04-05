@@ -4,6 +4,8 @@ import CustomCursor from "../components/CustomCursor";
 import Navbar from "../components/Navbar";
 import Footer from "../components/Footer";
 import ScrollToTop from "../components/ScrollToTop";
+import AuthProvider from "../components/AuthProvider";
+import CartProvider from "../components/CartProvider";
 
 export const metadata: Metadata = {
   title: "BOOK Premium Book Store",
@@ -18,11 +20,15 @@ export default function RootLayout({
   return (
     <html lang="en" className="antialiased">
       <body className="min-h-screen">
-        <ScrollToTop />
-        <CustomCursor />
-        <Navbar />
-        {children}
-        <Footer />
+        <AuthProvider>
+          <CartProvider>
+            <ScrollToTop />
+            <CustomCursor />
+            <Navbar />
+            {children}
+            <Footer />
+          </CartProvider>
+        </AuthProvider>
       </body>
     </html>
   );
