@@ -10,7 +10,7 @@ interface BookPreviewCardProps {
 export function BookPreviewCard({ data }: BookPreviewCardProps) {
   const displayTitle = data.title || "Untilted Book";
   const displayAuthor = data.author || "Unknown Author";
-  const displayPrice = data.price ? `$${data.price}` : "$0";
+  const displayPrice = data.price ? `NPR ${data.price}` : "NPR 0";
 
   return (
     <div className="sticky top-24 space-y-6">
@@ -110,7 +110,7 @@ export function BookPreviewCard({ data }: BookPreviewCardProps) {
             {data.discountPrice &&
               Number(data.discountPrice) < Number(data.price) && (
                 <p className="text-white/20 line-through text-sm font-bold">
-                  ${data.discountPrice}
+                  NPR {data.discountPrice.toString()}
                 </p>
               )}
           </div>

@@ -5,10 +5,10 @@ import Image from "next/image";
 import { useState } from "react";
 
 const books = [
-  { id: 1, title: "Whispers of the Heart", author: "Elena Morrow", price: "$16", image: "/books/romance.png" },
-  { id: 2, title: "The Starless Crown", author: "James Rollins", price: "$47", image: "/books/fantasy.png" },
-  { id: 3, title: "The Silent Patient", author: "Alex Michaelides", price: "$87", image: "/books/mystery.png" },
-  { id: 4, title: "Project Hail Mary", author: "Andy Weir", price: "$187", image: "/books/scifi.png" },
+  { id: 1, title: "Whispers of the Heart", author: "Elena Morrow", price: "NPR 16", image: "/books/romance.png" },
+  { id: 2, title: "The Starless Crown", author: "James Rollins", price: "NPR 47", image: "/books/fantasy.png" },
+  { id: 3, title: "The Silent Patient", author: "Alex Michaelides", price: "NPR 87", image: "/books/mystery.png" },
+  { id: 4, title: "Project Hail Mary", author: "Andy Weir", price: "NPR 187", image: "/books/scifi.png" },
 ];
 
 const containerVariants: Variants = {
