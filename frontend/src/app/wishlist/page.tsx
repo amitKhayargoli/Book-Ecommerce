@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import RemoveWishlistButton from "./components/RemoveWishlistButton";
 
-const BACKEND_BASE_URL = process.env.NEXT_PUBLIC_BACKEND_URL ?? "http://localhost:3001";
+const BACKEND_BASE_URL = process.env.NEXT_PUBLIC_BACKEND_URL ?? "http://localhost:4000";
 
 interface WishlistPageItem {
   id: string;
@@ -34,7 +34,7 @@ interface WishlistApiResponse {
 function formatPrice(value: number): string {
   return new Intl.NumberFormat("en-US", {
     style: "currency",
-    currency: "USD",
+    currency: "NPR",
     minimumFractionDigits: 2,
   }).format(value);
 }

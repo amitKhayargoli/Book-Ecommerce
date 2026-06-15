@@ -33,20 +33,23 @@ export default function Navbar() {
       <nav className="max-w-[1400px] mx-auto px-6 md:px-10 h-16 flex items-center justify-between">
         {/* Left nav */}
         <div className="hidden md:flex items-center gap-8">
-          {navLeft.map((item) => (
-            <Link
-              key={item}
-              href="#"
-              className="relative text-sm text-text-secondary hover:text-white transition-colors duration-300 group"
-            >
-              {item}
-              <span className="absolute -bottom-1 left-0 w-0 h-[1px] bg-white group-hover:w-full transition-all duration-300" />
-            </Link>
-          ))}
+          {navLeft.map((item) => {
+            const href = item === "Books" ? "/books" : "#";
+            return (
+              <Link
+                key={item}
+                href={href}
+                className="relative text-sm text-text-secondary hover:text-white transition-colors duration-300 group"
+              >
+                {item}
+                <span className="absolute -bottom-1 left-0 w-0 h-[1px] bg-white group-hover:w-full transition-all duration-300" />
+              </Link>
+            );
+          })}
         </div>
 
         {/* Center logo */}
-        <Link href="/" className="flex items-center gap-2">
+        <Link href="/" className="flex items-center gap-2 ml-20">
           <div className="grid grid-cols-2 gap-[3px]">
             <div className="w-2.5 h-2.5 rounded-full bg-white" />
             <div className="w-2.5 h-2.5 rounded-full bg-white" />
@@ -107,7 +110,6 @@ export default function Navbar() {
               {count}
             </motion.span>
           </Link>
-
         </div>
       </nav>
     </motion.header>

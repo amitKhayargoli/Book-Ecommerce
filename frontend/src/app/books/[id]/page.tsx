@@ -2,7 +2,10 @@ import Image from "next/image";
 import Link from "next/link";
 import { Star, ChevronRight, ThumbsUp, ThumbsDown } from "lucide-react";
 import { notFound } from "next/navigation";
-import { handleGetBooks, hanldeGetBookById } from "@/app/admin/books/actions/book-actions";
+import {
+  handleGetBooks,
+  hanldeGetBookById,
+} from "@/app/admin/books/actions/book-actions";
 import { getReviewsAction } from "./actions/review-actions";
 import WishlistButton from "./components/WishlistButton";
 import AddReviewButton from "./components/AddReviewButton";
@@ -69,7 +72,9 @@ function isApiBookList(value: unknown): value is ApiBookListItem[] {
   return value.every((item) => {
     if (!item || typeof item !== "object") return false;
     const candidate = item as { id?: unknown; title?: unknown };
-    return typeof candidate.id === "string" && typeof candidate.title === "string";
+    return (
+      typeof candidate.id === "string" && typeof candidate.title === "string"
+    );
   });
 }
 
@@ -113,12 +118,16 @@ function formatReviewDate(value: string): string {
 function formatPrice(value: number): string {
   return new Intl.NumberFormat("en-US", {
     style: "currency",
-    currency: "USD",
+    currency: "NPR",
     minimumFractionDigits: 2,
   }).format(value);
 }
 
-export default async function BookProductPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function BookProductPage({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
   const { id } = await params;
   const result = await hanldeGetBookById(id);
 
@@ -126,26 +135,48 @@ export default async function BookProductPage({ params }: { params: Promise<{ id
     notFound();
   }
 
+  const bookData = result.data;
+
   const booksResult = await handleGetBooks();
   const allBooks = isApiBookList(booksResult.data) ? booksResult.data : [];
-  const reviewsResult = await getReviewsAction(result.data.id);
-  const reviews = reviewsResult.success && isApiReviewList(reviewsResult.data) ? reviewsResult.data : [];
+  const reviewsResult = await getReviewsAction(bookData.id);
+  const reviews =
+    reviewsResult.success && isApiReviewList(reviewsResult.data)
+      ? reviewsResult.data
+      : [];
   const totalReviewsFromMeta =
-    typeof (reviewsResult.meta as { total?: unknown } | undefined)?.total === "number"
+    typeof (reviewsResult.meta as { total?: unknown } | undefined)?.total ===
+    "number"
       ? ((reviewsResult.meta as { total: number }).total ?? 0)
       : 0;
-  const totalReviews = Math.max(totalReviewsFromMeta, reviews.length, result.data.reviewCount);
+  const totalReviews = Math.max(
+    totalReviewsFromMeta,
+    reviews.length,
+    bookData.reviewCount,
+  );
 
-  const relatedBooks = allBooks.filter((candidate) => candidate.id !== result.data.id).slice(0, 4);
+  const relatedBooks = allBooks
+    .filter((candidate) => candidate.id !== bookData.id)
+    .slice(0, 4);
 
-  const images = [result.data.coverImage, result.data.mockupImage]
+  const images = [bookData.coverImage, bookData.mockupImage]
     .filter((image): image is string => Boolean(image))
-    .concat(["/books/scifi.png", "/books/fantasy.png", "/books/mystery.png", "/books/romance.png"])
+    .concat([
+      "/books/scifi.png",
+      "/books/fantasy.png",
+      "/books/mystery.png",
+      "/books/romance.png",
+    ])
     .slice(0, 4);
 
   const averageRating =
     reviews.length > 0
-      ? Number((reviews.reduce((sum, review) => sum + review.rating, 0) / reviews.length).toFixed(1))
+      ? Number(
+          (
+            reviews.reduce((sum, review) => sum + review.rating, 0) /
+            reviews.length
+          ).toFixed(1),
+        )
       : 0;
   const roundedAverageRating = Math.round(averageRating);
   const ratingBreakdown = [5, 4, 3, 2, 1].map((star) => {
@@ -158,17 +189,17 @@ export default async function BookProductPage({ params }: { params: Promise<{ id
   });
 
   const book = {
-    id: result.data.id,
-    title: result.data.title,
-    author: result.data.author?.name ?? "Unknown author",
-    price: formatPrice(result.data.price),
+    id: bookData.id,
+    title: bookData.title,
+    author: bookData.author?.name ?? "Unknown author",
+    price: formatPrice(bookData.price),
     rating: averageRating,
     roundedRating: roundedAverageRating,
     reviewCount: totalReviews,
-    description: result.data.description,
+    description: bookData.description,
     images,
     formats: ["Hardcover", "Paperback", "E-Book", "Audiobook"],
-    genres: (result.data.genres ?? [])
+    genres: (bookData.genres ?? [])
       .map((genre) => genre.name)
       .filter((name): name is string => Boolean(name)),
   };
@@ -177,41 +208,63 @@ export default async function BookProductPage({ params }: { params: Promise<{ id
     <div className="min-h-screen flex flex-col bg-background text-foreground selection:bg-romance/30 selection:text-white">
       <main className="flex-grow pt-24 pb-16 px-6 md:px-10 max-w-[1400px] mx-auto w-full">
         {/* Breadcrumbs */}
-        <nav className="flex items-center text-sm text-text-secondary mb-10 w-full" aria-label="Breadcrumb">
+        <nav
+          className="flex items-center text-sm text-text-secondary mb-10 w-full"
+          aria-label="Breadcrumb"
+        >
           <ol className="flex items-center space-x-2">
-            <li><Link href="/" className="hover:text-white transition-colors">Home</Link></li>
-            <li><ChevronRight className="w-4 h-4 mx-1" /></li>
-            <li><Link href="/books" className="hover:text-white transition-colors">Books</Link></li>
-            <li><ChevronRight className="w-4 h-4 mx-1" /></li>
-            <li><a href="#" className="hover:text-white transition-colors">{book.genres[0] ?? "Book"}</a></li>
+            <li>
+              <Link href="/" className="hover:text-white transition-colors">
+                Home
+              </Link>
+            </li>
+            <li>
+              <ChevronRight className="w-4 h-4 mx-1" />
+            </li>
+            <li>
+              <Link
+                href="/books"
+                className="hover:text-white transition-colors"
+              >
+                Books
+              </Link>
+            </li>
+            <li>
+              <ChevronRight className="w-4 h-4 mx-1" />
+            </li>
+            <li>
+              <span className="text-white/40">{book.genres[0] ?? "Book"}</span>
+            </li>
           </ol>
-        </nav>  
+        </nav>
 
         {/* Hero Section: Media & Details */}
         <section className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-20 mb-24">
-          
           {/* Left Column: Images */}
           <div className="flex flex-col gap-4">
             <div className="bg-card w-full aspect-[3/4] md:aspect-square rounded-xl flex items-center justify-center p-8 relative overflow-hidden group">
               <div className="absolute inset-0 bg-gradient-to-tr from-scifi/5 to-transparent opacity-50"></div>
-              <Image 
-                src={book.images[0]} 
-                alt={book.title} 
-                width={400} 
-                height={600} 
+              <Image
+                src={book.images[0]}
+                alt={book.title}
+                width={400}
+                height={600}
                 className="object-contain w-full h-full max-h-[600px] z-10 drop-shadow-[0_20px_50px_rgba(0,0,0,0.5)] transition-transform duration-700 group-hover:scale-105"
                 priority
               />
             </div>
-            
+
             <div className="grid grid-cols-4 gap-4">
               {book.images.map((img, idx) => (
-                <button key={idx} className="bg-card aspect-square rounded-lg flex items-center justify-center p-2 relative overflow-hidden border border-white/5 hover:border-white/20 transition-all">
-                  <Image 
-                    src={img} 
-                    alt={`Thumbnail ${idx + 1}`} 
-                    width={100} 
-                    height={150} 
+                <button
+                  key={idx}
+                  className="bg-card aspect-square rounded-lg flex items-center justify-center p-2 relative overflow-hidden border border-white/5 hover:border-white/20 transition-all"
+                >
+                  <Image
+                    src={img}
+                    alt={`Thumbnail ${idx + 1}`}
+                    width={100}
+                    height={150}
                     className="object-contain w-full h-full max-h-[100px] drop-shadow-[0_10px_20px_rgba(0,0,0,0.4)]"
                   />
                 </button>
@@ -225,10 +278,10 @@ export default async function BookProductPage({ params }: { params: Promise<{ id
             <h1 className="font-display text-4xl md:text-5xl lg:text-6xl font-bold tracking-tight mb-4">
               {book.title}
             </h1>
-            
+
             <div className="text-3xl font-semibold mb-6 flex items-center gap-6">
               {book.price}
-              
+
               <div className="flex items-center gap-2 text-sm font-normal text-text-secondary border-l border-white/10 pl-6">
                 <div className="flex text-romance">
                   {[...Array(5)].map((_, i) => (
@@ -243,7 +296,9 @@ export default async function BookProductPage({ params }: { params: Promise<{ id
                   ))}
                 </div>
                 <span>{book.rating}</span>
-                <span className="text-text-secondary/60">({book.reviewCount} reviews)</span>
+                <span className="text-text-secondary/60">
+                  ({book.reviewCount} reviews)
+                </span>
               </div>
             </div>
 
@@ -257,17 +312,21 @@ export default async function BookProductPage({ params }: { params: Promise<{ id
             {/* Selectors */}
             <div className="mb-8">
               <div className="flex justify-between items-center mb-3">
-                <span className="font-medium text-sm text-text-secondary uppercase tracking-widest">Format</span>
-                <button className="text-xs text-text-secondary hover:text-white underline decoration-white/30 underline-offset-4">Size Guide</button>
+                <span className="font-medium text-sm text-text-secondary uppercase tracking-widest">
+                  Format
+                </span>
+                <button className="text-xs text-text-secondary hover:text-white underline decoration-white/30 underline-offset-4">
+                  Size Guide
+                </button>
               </div>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                 {book.formats.map((format, idx) => (
-                  <button 
-                    key={format} 
+                  <button
+                    key={format}
                     className={`py-3 px-4 rounded-md border text-sm font-medium transition-all ${
-                      idx === 0 
-                        ? 'border-romance bg-romance/10 text-white' 
-                        : 'border-white/10 bg-card hover:bg-white/5 hover:border-white/30 text-text-secondary'
+                      idx === 0
+                        ? "border-romance bg-romance/10 text-white"
+                        : "border-white/10 bg-card hover:bg-white/5 hover:border-white/30 text-text-secondary"
                     }`}
                   >
                     {format}
@@ -285,7 +344,12 @@ export default async function BookProductPage({ params }: { params: Promise<{ id
             {/* Extra Snippet */}
             <div className="mt-8 pt-8 border-t border-white/10 text-sm text-text-secondary">
               <p>Delivery: Usually ships within 2-3 business days.</p>
-              <p className="mt-1">Returns: 30 days return policy. <a href="#" className="underline">Learn more.</a></p>
+              <p className="mt-1">
+                Returns: 30 days return policy.{" "}
+                <a href="#" className="underline">
+                  Learn more.
+                </a>
+              </p>
             </div>
           </div>
         </section>
@@ -293,24 +357,40 @@ export default async function BookProductPage({ params }: { params: Promise<{ id
         {/* Similar Books / Related Products */}
         <section className="mb-24 pt-10 border-t border-white/5">
           <div className="flex items-center justify-between pb-8">
-            <h2 className="font-display text-2xl md:text-3xl font-bold">Related Books</h2>
-            <button className="text-sm font-medium hover:text-romance transition-colors">View All</button>
+            <h2 className="font-display text-2xl md:text-3xl font-bold">
+              Related Books
+            </h2>
+            <button className="text-sm font-medium hover:text-romance transition-colors">
+              View All
+            </button>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
             {relatedBooks.map((relatedBook, index) => (
-              <div key={relatedBook.id} className="group flex flex-col items-center p-6 bg-card rounded-xl border border-white/5 hover:border-white/20 transition-all cursor-pointer">
+              <div
+                key={relatedBook.id}
+                className="group flex flex-col items-center p-6 bg-card rounded-xl border border-white/5 hover:border-white/20 transition-all cursor-pointer"
+              >
                 <div className="w-full aspect-[3/4] relative mb-6">
-                  <Image 
-                    src={relatedBook.coverImage || book.images[index % book.images.length]} 
-                    alt={relatedBook.title} 
-                    fill 
+                  <Image
+                    src={
+                      relatedBook.coverImage ||
+                      book.images[index % book.images.length]
+                    }
+                    alt={relatedBook.title}
+                    fill
                     className="object-contain drop-shadow-[0_10px_20px_rgba(0,0,0,0.4)] transition-transform duration-500 group-hover:scale-105 group-hover:rotate-1"
                   />
                 </div>
-                <h3 className="font-display font-semibold mb-1 w-full truncate text-center">{relatedBook.title}</h3>
-                <p className="text-sm text-text-secondary w-full text-center mb-3">{relatedBook.author?.name ?? "Unknown author"}</p>
+                <h3 className="font-display font-semibold mb-1 w-full truncate text-center">
+                  {relatedBook.title}
+                </h3>
+                <p className="text-sm text-text-secondary w-full text-center mb-3">
+                  {relatedBook.author?.name ?? "Unknown author"}
+                </p>
                 <div className="flex items-center justify-between w-full">
-                  <span className="font-bold text-romance">{formatPrice(relatedBook.price ?? result.data.price)}</span>
+                  <span className="font-bold text-romance">
+                    {formatPrice(relatedBook.price ?? bookData.price)}
+                  </span>
                   <div className="flex items-center gap-1 text-xs text-text-secondary">
                     <Star className="w-3 h-3 fill-romance text-romance" />
                     <span>4.5</span>
@@ -324,18 +404,21 @@ export default async function BookProductPage({ params }: { params: Promise<{ id
         {/* Reviews Section */}
         <section className="mb-24 pt-10 border-t border-white/5">
           <div className="flex items-center justify-between pb-10 gap-4">
-            <h2 className="font-display text-2xl md:text-3xl font-bold">Product Reviews</h2>
+            <h2 className="font-display text-2xl md:text-3xl font-bold">
+              Product Reviews
+            </h2>
             <AddReviewButton bookId={book.id} />
           </div>
-          
+
           <div className="flex flex-col lg:flex-row gap-16">
-            
             {/* Left Side: Summary & Filters */}
             <div className="w-full lg:w-1/3 flex flex-col gap-10">
               {/* Score Summary */}
               <div className="flex items-start gap-6">
                 <div className="w-24 h-24 rounded-full border-4 border-romance flex items-center justify-center flex-shrink-0">
-                  <span className="text-3xl font-bold font-display">{book.rating}</span>
+                  <span className="text-3xl font-bold font-display">
+                    {book.rating}
+                  </span>
                 </div>
                 <div className="flex flex-col justify-center h-24 gap-2">
                   <div className="flex gap-1 text-romance">
@@ -350,20 +433,28 @@ export default async function BookProductPage({ params }: { params: Promise<{ id
                       />
                     ))}
                   </div>
-                  <p className="text-text-secondary">{book.reviewCount} Reviews</p>
+                  <p className="text-text-secondary">
+                    {book.reviewCount} Reviews
+                  </p>
                 </div>
               </div>
 
               {/* Review Bars */}
               <div className="flex flex-col gap-3">
                 {ratingBreakdown.map((row) => (
-                  <div key={row.star} className="flex items-center gap-4 text-sm font-medium text-text-secondary">
+                  <div
+                    key={row.star}
+                    className="flex items-center gap-4 text-sm font-medium text-text-secondary"
+                  >
                     <div className="flex items-center gap-1 w-8">
                       <span>{row.star}</span>
                       <Star className="w-3 h-3 fill-current" />
                     </div>
                     <div className="flex-1 h-2 bg-white/10 rounded-full overflow-hidden">
-                      <div className="h-full bg-white relative rounded-full" style={{ width: `${row.pct}%` }}></div>
+                      <div
+                        className="h-full bg-white relative rounded-full"
+                        style={{ width: `${row.pct}%` }}
+                      ></div>
                     </div>
                     <div className="w-10 text-right">{row.count}</div>
                   </div>
@@ -375,15 +466,21 @@ export default async function BookProductPage({ params }: { params: Promise<{ id
                 <h3 className="font-semibold mb-6">Review Filter</h3>
                 <div className="flex flex-col gap-4">
                   <div className="flex items-center justify-between cursor-pointer group">
-                    <span className="text-text-secondary group-hover:text-white transition-colors">Rating</span>
+                    <span className="text-text-secondary group-hover:text-white transition-colors">
+                      Rating
+                    </span>
                     <ChevronRight className="w-4 h-4 text-text-secondary group-hover:text-white transition-colors" />
                   </div>
                   <div className="flex items-center justify-between cursor-pointer group">
-                    <span className="text-text-secondary group-hover:text-white transition-colors">Book Format</span>
+                    <span className="text-text-secondary group-hover:text-white transition-colors">
+                      Book Format
+                    </span>
                     <ChevronRight className="w-4 h-4 text-text-secondary group-hover:text-white transition-colors" />
                   </div>
                   <div className="flex items-center justify-between cursor-pointer group">
-                    <span className="text-text-secondary group-hover:text-white transition-colors">Has Photos</span>
+                    <span className="text-text-secondary group-hover:text-white transition-colors">
+                      Has Photos
+                    </span>
                     <ChevronRight className="w-4 h-4 text-text-secondary group-hover:text-white transition-colors" />
                   </div>
                 </div>
@@ -392,19 +489,19 @@ export default async function BookProductPage({ params }: { params: Promise<{ id
 
             {/* Right Side: Reviews List */}
             <div className="w-full lg:w-2/3 flex flex-col gap-10">
-              
               {/* Sort Header */}
               <div className="flex justify-between items-center bg-card px-6 py-4 rounded-lg">
                 <div className="text-sm font-medium text-text-secondary">
-                  Displaying {reviews.length > 0 ? `1-${reviews.length}` : "0"} of {book.reviewCount}
+                  Displaying {reviews.length > 0 ? `1-${reviews.length}` : "0"}{" "}
+                  of {book.reviewCount}
                 </div>
                 <div className="flex gap-4">
                   <span className="text-sm text-text-secondary">Sort by:</span>
-                  <select className="bg-transparent text-sm font-medium outline-none cursor-pointer">
-                    <option className="bg-card text-white">Most Relevant</option>
-                    <option className="bg-card text-white">Newest First</option>
-                    <option className="bg-card text-white">Highest Rating</option>
-                    <option className="bg-card text-white">Lowest Rating</option>
+                  <select className="bg-card-hover text-sm font-medium outline-none cursor-pointer px-3 py-2 rounded-lg border border-white/10">
+                    <option className="bg-card-hover text-white">Most Relevant</option>
+                    <option className="bg-card-hover text-white">Newest First</option>
+                    <option className="bg-card-hover text-white">Highest Rating</option>
+                    <option className="bg-card-hover text-white">Lowest Rating</option>
                   </select>
                 </div>
               </div>
@@ -418,7 +515,10 @@ export default async function BookProductPage({ params }: { params: Promise<{ id
                 )}
 
                 {reviews.map((review) => (
-                  <div key={review.id} className="border-b border-white/5 pb-8 last:border-0">
+                  <div
+                    key={review.id}
+                    className="border-b border-white/5 pb-8 last:border-0"
+                  >
                     <div className="flex items-center justify-between mb-3">
                       <div className="flex text-romance gap-1">
                         {[...Array(5)].map((_, i) => (
@@ -432,7 +532,9 @@ export default async function BookProductPage({ params }: { params: Promise<{ id
                           />
                         ))}
                       </div>
-                      <span className="text-xs text-text-secondary">{formatReviewDate(review.createdAt)}</span>
+                      <span className="text-xs text-text-secondary">
+                        {formatReviewDate(review.createdAt)}
+                      </span>
                     </div>
 
                     <p className="text-text-secondary leading-relaxed mb-6">
@@ -440,15 +542,17 @@ export default async function BookProductPage({ params }: { params: Promise<{ id
                         ? review.comment
                         : "No written comment provided."}
                     </p>
-                    
+
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-3">
                         <div className="h-8 w-8 rounded-full bg-white/10 flex items-center justify-center font-bold text-xs uppercase">
                           {review.user.name[0]}
                         </div>
-                        <span className="text-sm font-medium">{review.user.name}</span>
+                        <span className="text-sm font-medium">
+                          {review.user.name}
+                        </span>
                       </div>
-                      
+
                       <div className="flex items-center gap-4 text-xs font-medium text-text-secondary">
                         <span className="hidden sm:inline">Helpful?</span>
                         <button className="flex items-center gap-1 hover:text-white transition-colors">
@@ -462,13 +566,10 @@ export default async function BookProductPage({ params }: { params: Promise<{ id
                   </div>
                 ))}
               </div>
-
             </div>
           </div>
         </section>
-
       </main>
-      
     </div>
   );
 }
