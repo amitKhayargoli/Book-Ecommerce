@@ -10,7 +10,7 @@ export class ReviewRepository implements IReviewRepository {
 
     const where = { bookId };
 
-    const [reviews, total] = await prisma.$transaction([
+    const [reviews, total] = await Promise.all([
       prisma.review.findMany({
         where,
         select: reviewSelect,

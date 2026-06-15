@@ -197,7 +197,7 @@ export class BookRepository {
       }),
     };
 
-    const [books, total] = await prisma.$transaction([
+    const [books, total] = await Promise.all([
       prisma.book.findMany({
         where,
         select: bookSelect,
@@ -272,10 +272,8 @@ export class BookRepository {
   // ── Delete ────────────────────────────────────────────────────
   async delete(id: string): Promise<void> {
     // Cascade: delete bookGenres first (MongoDB doesn't enforce FK cascade)
-    await prisma.$transaction([
-      prisma.bookGenre.deleteMany({ where: { bookId: id } }),
-      prisma.book.delete({ where: { id } }),
-    ]);
+    await prisma.bookGenre.deleteMany({ where: { bookId: id } });
+    await prisma.book.delete({ where: { id } });
   }
 
   // ── Featured books ────────────────────────────────────────────

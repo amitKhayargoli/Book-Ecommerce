@@ -3,6 +3,10 @@ import cors from "cors";
 import helmet from "helmet";
 import { errorHandler } from "./middlewares/error.middleware";
 import bookRoutes from "./routes/book.routes";
+import authRoutes from "./routes/auth.routes";
+import wishlistRoutes from "./routes/wishlist.routes";
+import cartRoutes from "./routes/cart.routes";
+import checkoutRoutes from "./routes/checkout.routes";
 import { AppError } from "./utils/errors";
 
 const app: Application = express();
@@ -20,6 +24,10 @@ app.get("/health", (_req, res) => {
 
 // ─── API Routes ──────────────────────────────────────────────────
 app.use("/api/books", bookRoutes);
+app.use("/api/auth", authRoutes);
+app.use("/api/wishlist", wishlistRoutes);
+app.use("/api/cart", cartRoutes);
+app.use("/api/checkout", checkoutRoutes);
 
 // ─── 404 Catch-all ───────────────────────────────────────────────
 app.use((req: Request, _res: Response, next: NextFunction) => {
