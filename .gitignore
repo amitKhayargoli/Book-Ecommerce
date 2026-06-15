@@ -14,12 +14,23 @@
 # testing
 /coverage
 
+# misc
+.vscode/
+frontend/ts_errors.txt
+
 # next.js
 /.next/
 /out/
+.agents 
+.kilo
+.opencode
 
 # production
 /build
+/backend/dist
+.vscode/
+frontend/.vscode/
+frontend/ts_errors.txt
 
 # misc
 .DS_Store
