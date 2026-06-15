@@ -45,6 +45,10 @@ export default function AddBookPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [isHydrated, setIsHydrated] = useState(false);
 
+  const scrollToTop = () => {
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
   useEffect(() => {
     try {
       const saved = localStorage.getItem(DRAFT_STORAGE_KEY);
@@ -98,6 +102,7 @@ export default function AddBookPage() {
       setImportedData(null);
       setErrors({});
       setSuccessMessage("Form cleared.");
+      scrollToTop();
     }
   };
 
@@ -152,6 +157,8 @@ export default function AddBookPage() {
         } else {
           setRequestError(result.error || "Failed to create book");
         }
+
+        scrollToTop();
       })
       .finally(() => {
         setIsSaving(false);

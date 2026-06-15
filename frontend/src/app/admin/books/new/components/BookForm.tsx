@@ -170,9 +170,9 @@ export function BookForm({ data, onChange, errors }: BookFormProps) {
           <div className="pt-2 border-t border-white/5 mt-6 pt-8">
             <InputWrapper label="Publication Status">
               <div className="relative w-full sm:w-1/2">
-                <select name="status" value={data.status} onChange={handleChange} className="w-full px-5 py-3.5 bg-white/[0.03] border border-white/5 rounded-2xl text-white focus:outline-none focus:ring-2 focus:ring-white/10 appearance-none font-bold tracking-wide cursor-none">
-                  <option value="DRAFT" className="bg-card">DRAFT (HIDDEN)</option>
-                  <option value="PUBLISHED" className="bg-card">PUBLISHED (LIVE)</option>
+                <select name="status" value={data.status} onChange={handleChange} className="w-full px-5 py-3.5 bg-white/[0.03] border border-white/5 rounded-2xl text-white focus:outline-none focus:ring-2 focus:ring-white/10 appearance-none font-bold tracking-wide cursor-pointer">
+                  <option value="DRAFT" className="bg-card-hover text-white">DRAFT (HIDDEN)</option>
+                  <option value="PUBLISHED" className="bg-card-hover text-white">PUBLISHED (LIVE)</option>
                 </select>
                 <div className="absolute right-5 top-1/2 -translate-y-1/2 pointer-events-none opacity-40">
                     <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M2 4L6 8L10 4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>

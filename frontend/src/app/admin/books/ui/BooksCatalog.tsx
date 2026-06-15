@@ -99,7 +99,7 @@ export function BooksCatalog({ books }: BooksCatalogProps) {
             className="h-11 rounded-xl border border-white/10 bg-white/5 text-sm text-white px-3 focus:outline-none focus:ring-2 focus:ring-white/20"
           >
             {genres.map((genre) => (
-              <option key={genre} value={genre} className="bg-card text-white">
+              <option key={genre} value={genre} className="bg-card-hover text-white">
                 {genre === "all" ? "All genres" : genre}
               </option>
             ))}
@@ -112,13 +112,13 @@ export function BooksCatalog({ books }: BooksCatalogProps) {
             }
             className="h-11 rounded-xl border border-white/10 bg-white/5 text-sm text-white px-3 focus:outline-none focus:ring-2 focus:ring-white/20"
           >
-            <option value="all" className="bg-card text-white">
+            <option value="all" className="bg-card-hover text-white">
               All verification states
             </option>
-            <option value="verified" className="bg-card text-white">
+            <option value="verified" className="bg-card-hover text-white">
               Verified only
             </option>
-            <option value="unverified" className="bg-card text-white">
+            <option value="unverified" className="bg-card-hover text-white">
               Unverified only
             </option>
           </select>

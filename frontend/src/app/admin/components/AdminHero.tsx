@@ -1,14 +1,20 @@
 "use client";
 
+import Link from "next/link";
 import { motion } from "framer-motion";
 
-export function AdminHero() {
+interface AdminHeroProps {
+  userName?: string;
+}
+
+export function AdminHero({ userName }: AdminHeroProps) {
   const now = new Date();
   const formatted = now.toLocaleString(undefined, {
     weekday: "short",
     month: "short",
     day: "numeric",
   });
+  const firstName = userName?.trim().split(" ")[0];
 
   return (
     <motion.section
@@ -24,7 +30,7 @@ export function AdminHero() {
           Admin Dashboard · {formatted}
         </p>
         <h1 className="text-3xl md:text-4xl lg:text-5xl font-display font-bold tracking-tight">
-          Keep your bookstore in orbit.
+          {firstName ? `Welcome back, ${firstName}.` : "Keep your bookstore in orbit."}
         </h1>
         <p className="text-sm md:text-base text-text-secondary max-w-xl">
           See catalog health, orders, and reader signals at a glance. Use the quick actions
@@ -33,18 +39,18 @@ export function AdminHero() {
       </div>
 
       <div className="relative z-10 flex flex-col sm:flex-row gap-3 w-full md:w-auto">
-        <a
+        <Link
           href="/admin/books/new"
           className="inline-flex items-center justify-center px-5 py-3 rounded-full bg-white text-black text-xs md:text-sm font-semibold tracking-[0.22em] uppercase hover:bg-white/90 transition-colors"
         >
           Add New Book
-        </a>
-        <a
+        </Link>
+        <Link
           href="/admin/books"
           className="inline-flex items-center justify-center px-5 py-3 rounded-full border border-white/15 bg-white/0 text-xs md:text-sm font-semibold tracking-[0.22em] uppercase text-text-secondary hover:bg-white/5 hover:text-white transition-colors"
         >
           Review Catalog
-        </a>
+        </Link>
       </div>
     </motion.section>
   );

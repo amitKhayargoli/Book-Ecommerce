@@ -1,4 +1,3 @@
-/* eslint-disable react-hooks/rules-of-hooks */
 "use client";
 
 import { useEffect, useState } from "react";
@@ -12,10 +11,15 @@ import { OnboardingChecklist } from "./OnboardingChecklist";
 import { DashboardData } from "../types";
 import { mockDashboardData } from "../mockDashboardData";
 import { withDerivedDashboardFields } from "../utils";
+import { AuthUser } from "@/lib/api/auth";
 
 const FIRST_LOGIN_STORAGE_KEY = "admin_dashboard_onboarding_dismissed";
 
-export function AdminDashboard() {
+interface AdminDashboardProps {
+  initialProfile?: AuthUser | null;
+}
+
+export function AdminDashboard({ initialProfile = null }: AdminDashboardProps) {
   const [data, setData] = useState<DashboardData | null>(null);
   const [isFirstLogin, setIsFirstLogin] = useState(false);
 
@@ -88,7 +92,7 @@ export function AdminDashboard() {
       transition={{ duration: 0.6 }}
       className="space-y-12"
     >
-      <AdminHero />
+      <AdminHero userName={initialProfile?.name} />
 
       <KpiSection kpis={data.kpis} />
 

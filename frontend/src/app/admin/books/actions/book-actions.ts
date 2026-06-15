@@ -1,5 +1,6 @@
 "use server";
 
+import { auth } from "@/auth";
 import { bookEndpoints, BookPayload } from "@/lib/api/books";
 
 export interface ServerActionResult<T> {
@@ -12,7 +13,12 @@ export async function handleCreateBook(
   payload: BookPayload,
 ): Promise<ServerActionResult<unknown>> {
   try {
-    const response = await bookEndpoints.createBook(payload);
+    const session = await auth();
+    const response = await bookEndpoints.createBook(payload, {
+      headers: session?.accessToken
+        ? { Authorization: `Bearer ${session.accessToken}` }
+        : undefined,
+    });
     return {
       success: response.data.success,
       data: response.data.data,
@@ -90,7 +96,12 @@ export async function handleUpdateBook(
   payload: Partial<BookPayload>,
 ): Promise<ServerActionResult<unknown>> {
   try {
-    const response = await bookEndpoints.updateBook(id, payload);
+    const session = await auth();
+    const response = await bookEndpoints.updateBook(id, payload, {
+      headers: session?.accessToken
+        ? { Authorization: `Bearer ${session.accessToken}` }
+        : undefined,
+    });
     return {
       success: response.data.success,
       data: response.data.data,
@@ -109,7 +120,12 @@ export async function handleDeleteBook(
   id: string,
 ): Promise<ServerActionResult<unknown>> {
   try {
-    const response = await bookEndpoints.deleteBook(id);
+    const session = await auth();
+    const response = await bookEndpoints.deleteBook(id, {
+      headers: session?.accessToken
+        ? { Authorization: `Bearer ${session.accessToken}` }
+        : undefined,
+    });
     return {
       success: response.data.success,
       data: response.data.data,
