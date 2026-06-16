@@ -112,4 +112,3 @@ export function AdminDashboard({ initialProfile = null }: AdminDashboardProps) {
     </motion.div>
   );
 }
-
