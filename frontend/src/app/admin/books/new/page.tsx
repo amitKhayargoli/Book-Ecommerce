@@ -7,7 +7,7 @@ import { SaveActionsBar } from "./components/SaveActionsBar";
 import { FormStepIndicator, STEPS } from "./components/FormStepIndicator";
 import { BookFormData, OpenLibraryResult, ValidationErrors } from "./types";
 import { mapOpenLibraryToFormData, validateBookForm } from "./utils";
-import { CheckCircle2, ArrowLeft, ArrowRight } from "lucide-react";
+import { CheckCircle2, ArrowLeft, ArrowRight, ChevronLeft, ChevronRight } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { handleCreateBook, ServerActionResult } from "../actions/book-actions";
 import { BookPayload } from "@/lib/api/books";
@@ -17,10 +17,7 @@ const emptyFormData: BookFormData = {
   slug: "",
   description: "",
   author: "",
-  publisher: "",
-  isbn: "",
   language: "",
-  pages: "",
   publishedYear: "",
   genres: [],
   subjects: [],
@@ -50,12 +47,6 @@ function validateStep(step: number, data: BookFormData): ValidationErrors {
     }
     case 2: {
       // Catalog info — all optional, but catch format issues
-      if (data.pages) {
-        const pages = Number(data.pages);
-        if (!Number.isFinite(pages) || pages <= 0) {
-          errors.pages = "Pages must be greater than 0";
-        }
-      }
       if (data.publishedYear) {
         const year = Number(data.publishedYear);
         const maxYear = new Date().getFullYear() + 5;
@@ -94,6 +85,7 @@ export default function AddBookPage() {
   const [requestError, setRequestError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [isHydrated, setIsHydrated] = useState(false);
+  const [importPanelOpen, setImportPanelOpen] = useState(true);
 
   // ── Multi-step state ──────────────────────────────────────────
   const [currentStep, setCurrentStep] = useState(1);
@@ -261,19 +253,16 @@ export default function AddBookPage() {
       price: toNumber(formData.price),
       discountPrice: toOptionalNumber(formData.discountPrice),
       stock: toNumber(formData.stock),
-      isbn: formData.isbn.trim() || undefined,
       publishedAt: formData.publishedYear
         ? `${Number(formData.publishedYear)}-01-01T00:00:00.000Z`
         : undefined,
       language: formData.language.trim() || undefined,
-      pages: toOptionalNumber(formData.pages),
       coverImage: formData.coverImageUrl.trim() || "https://placehold.co/600x900?text=Book+Cover",
       mockupImage: formData.mockupImageUrl.trim() || undefined,
       previewImages: formData.previewImages.filter((img) => img.trim().length > 0),
       featured: formData.isFeatured,
       trending: formData.isTrending,
       authorName: formData.author.trim(),
-      publisherName: formData.publisher.trim() || undefined,
       genreNames: formData.genres,
     };
 
@@ -364,19 +353,58 @@ export default function AddBookPage() {
         {/* ── Main Content ───────────────────────────────────────── */}
         <div className="flex flex-col xl:flex-row gap-12 items-start">
           
-          {/* Import Search Sidebar (hidden on review step) */}
+          {/* Import Search Sidebar — collapsible with fluid animation */}
           {!isReviewStep && (
             <motion.div 
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.6, delay: 0.2 }}
-              className="w-full xl:w-[420px] shrink-0 z-10"
+              initial={{ opacity: 0, x: -20, width: 420 }}
+              animate={{ 
+                opacity: importPanelOpen ? 1 : 0,
+                x: importPanelOpen ? 0 : -20,
+                width: importPanelOpen ? 420 : 0,
+              }}
+              transition={{ 
+                duration: 0.45, 
+                ease: [0.22, 1, 0.36, 1],
+              }}
+              className="overflow-hidden shrink-0 z-10"
             >
-              <BookImportSearch 
-                onImportBook={handleImportBook} 
-                selectedKey={importedData?.key} 
-              />
+              <div className="w-[420px] relative">
+                {/* Collapse button */}
+                {importPanelOpen && (
+                  <button
+                    type="button"
+                    onClick={() => setImportPanelOpen(false)}
+                    className="absolute top-6 right-6 z-20 w-8 h-8 rounded-full bg-white/10 border border-white/20 flex items-center justify-center hover:bg-white/20 transition-colors"
+                  >
+                    <ChevronLeft className="w-4 h-4 text-white/70" />
+                  </button>
+                )}
+                <BookImportSearch 
+                  onImportBook={handleImportBook} 
+                  selectedKey={importedData?.key} 
+                />
+              </div>
             </motion.div>
+          )}
+
+          {/* Slim collapsed tab */}
+          {!isReviewStep && !importPanelOpen && (
+            <motion.button
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 0.3 }}
+              type="button"
+              onClick={() => setImportPanelOpen(true)}
+              className="flex items-center gap-3 px-3 py-8 rounded-2xl bg-card/40 border border-white/5 hover:bg-white/[0.03] hover:border-white/10 transition-all shrink-0 cursor-pointer"
+            >
+              <ChevronRight className="w-4 h-4 text-white/60" />
+              <span 
+                className="text-[0.6rem] font-bold uppercase tracking-[0.3em] text-text-secondary"
+                style={{ writingMode: 'vertical-rl', textOrientation: 'mixed' }}
+              >
+                Import
+              </span>
+            </motion.button>
           )}
 
           <motion.div 

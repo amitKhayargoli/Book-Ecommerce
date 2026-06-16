@@ -155,20 +155,8 @@ function CatalogStep({
   return (
     <BookFormSection title="Catalog Details" description="Metadata for library and search categorization.">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-        <InputWrapper label="Publisher">
-          <input type="text" name="publisher" value={data.publisher} onChange={handleChange} placeholder="e.g. HarperCollins" className="w-full px-5 py-3 bg-white/[0.03] border border-white/5 rounded-2xl text-white placeholder:text-white/20 focus:outline-none focus:ring-2 focus:ring-white/10 focus:border-white/20 transition-all" />
-        </InputWrapper>
-
         <InputWrapper label="Language">
           <input type="text" name="language" value={data.language} onChange={handleChange} placeholder="e.g. English" className="w-full px-5 py-3 bg-white/[0.03] border border-white/5 rounded-2xl text-white placeholder:text-white/20 focus:outline-none focus:ring-2 focus:ring-white/10 focus:border-white/20 transition-all" />
-        </InputWrapper>
-
-        <InputWrapper label="ISBN">
-          <input type="text" name="isbn" value={data.isbn} onChange={handleChange} placeholder="978-0-00-000000-0" className="w-full px-5 py-3 bg-white/[0.03] border border-white/5 rounded-2xl text-white placeholder:text-white/20 focus:outline-none focus:ring-2 focus:ring-white/10 transition-all font-mono text-sm uppercase tracking-widest" />
-        </InputWrapper>
-
-        <InputWrapper label="Pages">
-          <input type="number" name="pages" value={data.pages} onChange={handleChange} min="0" placeholder="e.g. 310" className="w-full px-5 py-3 bg-white/[0.03] border border-white/5 rounded-2xl text-white placeholder:text-white/20 focus:outline-none focus:ring-2 focus:ring-white/10 focus:border-white/20 transition-all" />
         </InputWrapper>
 
         <InputWrapper label="Published Year">
@@ -186,7 +174,7 @@ function CatalogStep({
       </div>
 
       <div className="pt-2">
-        <InputWrapper label="Subjects / Tags">
+        <InputWrapper label="Tags">
           <SubjectChips 
             subjects={data.subjects} 
             onChange={(subjects) => onChange({ subjects })} 
@@ -318,10 +306,7 @@ function ReviewStep({ data }: { data: BookFormData }) {
           <div className="space-y-4 p-6 bg-white/[0.02] border border-white/5 rounded-2xl">
             <h4 className="text-xs font-bold text-white/30 uppercase tracking-[0.2em]">Catalog Details</h4>
             <div className="space-y-3">
-              <SummaryField label="Publisher" value={data.publisher || "—"} />
-              <SummaryField label="ISBN" value={data.isbn || "—"} />
               <SummaryField label="Language" value={data.language || "—"} />
-              <SummaryField label="Pages" value={data.pages ? String(data.pages) : "—"} />
               <SummaryField label="Published" value={data.publishedYear ? String(data.publishedYear) : "—"} />
               <SummaryField label="Genres" value={data.genres.length > 0 ? data.genres.join(", ") : "—"} />
               <SummaryField label="Subjects" value={data.subjects.length > 0 ? data.subjects.slice(0, 5).join(", ") + (data.subjects.length > 5 ? ` (+${data.subjects.length - 5} more)` : "") : "—"} />

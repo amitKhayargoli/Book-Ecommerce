@@ -20,10 +20,7 @@ export interface BookFormData {
   slug: string;
   description: string;
   author: string;
-  publisher: string;
-  isbn: string;
   language: string;
-  pages: string | number; // allow string initially for controlled input
   publishedYear: string | number;
   genres: string[];
   subjects: string[];
