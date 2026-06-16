@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
-
-const BACKEND_BASE_URL = process.env.NEXT_PUBLIC_BACKEND_URL ?? "http://localhost:4000";
+import { BACKEND_URL } from "@/lib/server-config";
 
 interface BackendWishlistResponse {
   success: boolean;
@@ -46,7 +45,7 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const response = await fetch(`${BACKEND_BASE_URL}/api/wishlist/items`, {
+    const response = await fetch(`${BACKEND_URL}/api/wishlist/items`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",

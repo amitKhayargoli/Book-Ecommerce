@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
-
-const BACKEND_BASE_URL = process.env.NEXT_PUBLIC_BACKEND_URL ?? "http://localhost:4000";
+import { BACKEND_URL } from "@/lib/server-config";
 
 interface RouteContext {
   params: Promise<{ bookId: string }>;
@@ -26,7 +25,7 @@ export async function DELETE(_req: Request, context: RouteContext) {
   }
 
   try {
-    const response = await fetch(`${BACKEND_BASE_URL}/api/cart/items/${encodeURIComponent(bookId)}`, {
+    const response = await fetch(`${BACKEND_URL}/api/cart/items/${encodeURIComponent(bookId)}`, {
       method: "DELETE",
       headers: {
         Authorization: `Bearer ${session.accessToken}`,
