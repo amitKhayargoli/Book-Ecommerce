@@ -9,9 +9,51 @@ const KNOWN_GENRES = [
 ];
 
 /**
- * Map Open Library 3-letter language codes to readable names.
+ * Map language codes (ISO 639-1 two-letter + ISO 639-2/B three-letter) to readable names.
+ * Covers both Google Books (2-letter) and Open Library (3-letter) formats.
  */
 const LANGUAGE_MAP: Record<string, string> = {
+  // ISO 639-1 (two-letter) — used by Google Books
+  en: "English",
+  es: "Spanish",
+  fr: "French",
+  nl: "Dutch",
+  de: "German",
+  it: "Italian",
+  pt: "Portuguese",
+  ru: "Russian",
+  zh: "Chinese",
+  ja: "Japanese",
+  ko: "Korean",
+  ar: "Arabic",
+  hi: "Hindi",
+  bn: "Bengali",
+  tr: "Turkish",
+  pl: "Polish",
+  sv: "Swedish",
+  da: "Danish",
+  no: "Norwegian",
+  fi: "Finnish",
+  he: "Hebrew",
+  th: "Thai",
+  vi: "Vietnamese",
+  cs: "Czech",
+  hu: "Hungarian",
+  ro: "Romanian",
+  el: "Greek",
+  uk: "Ukrainian",
+  bg: "Bulgarian",
+  sr: "Serbian",
+  hr: "Croatian",
+  sl: "Slovenian",
+  lt: "Lithuanian",
+  lv: "Latvian",
+  et: "Estonian",
+  ga: "Irish",
+  cy: "Welsh",
+  gd: "Scottish Gaelic",
+  la: "Latin",
+  // ISO 639-2/B (three-letter) — used by Open Library
   eng: "English",
   spa: "Spanish",
   fre: "French",
@@ -104,6 +146,20 @@ export function generateSlug(title: string): string {
 export function mapOpenLibraryToFormData(result: OpenLibraryResult): Partial<BookFormData> {
   const subjects = result.subjects || [];
 
+  // Collect all available cover image URLs from Google Books extraImages
+  // Ordered by quality (largest first) so the best one becomes the default cover
+  const extra = result.extraImages;
+  const coverUrls: string[] = [];
+  if (extra) {
+    const sizes = ["extraLarge", "large", "medium", "thumbnail", "small", "smallThumbnail"] as const;
+    for (const size of sizes) {
+      const url = extra[size];
+      if (url && !coverUrls.includes(url)) {
+        coverUrls.push(url);
+      }
+    }
+  }
+
   return {
     title: result.title,
     slug: generateSlug(result.title),
@@ -113,6 +169,7 @@ export function mapOpenLibraryToFormData(result: OpenLibraryResult): Partial<Boo
     subjects,
     genres: matchGenresFromSubjects(subjects),
     coverImageUrl: result.coverImage || "",
+    previewImages: coverUrls,
   };
 }
 

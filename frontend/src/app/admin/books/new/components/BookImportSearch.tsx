@@ -1,7 +1,7 @@
-import { Search, Loader2 } from "lucide-react";
+import { Search, Loader2, Book } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
 import { OpenLibraryResult } from "../types";
-import { searchMockOpenLibrary as searchOpenLibrary } from "../services/mockOpenLibrary";
+import { searchGoogleBooks } from "../services/googleBooks.service";
 import { SearchSkeleton } from "./LoadingSkeletons";
 import { EmptyState } from "./EmptyState";
 import { SearchResultCard } from "./SearchResultCard";
@@ -30,7 +30,7 @@ export function BookImportSearch({ onImportBook, selectedKey }: BookImportSearch
     setHasSearched(true);
     
     try {
-      const data = await searchOpenLibrary(searchQuery);
+      const data = await searchGoogleBooks(searchQuery);
       setResults(data);
     } catch (error) {
       console.error("Search failed:", error);
@@ -69,11 +69,11 @@ export function BookImportSearch({ onImportBook, selectedKey }: BookImportSearch
       <div className="p-8 border-b border-white/5 bg-white/[0.02] shrink-0">
         <div className="flex items-center gap-4 mb-8">
           <div className="w-12 h-12 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center shrink-0">
-            <Search className="w-6 h-6 text-white/70" />
+            <Book className="w-6 h-6 text-white/70" />
           </div>
           <div>
             <h2 className="text-2xl font-display font-semibold text-white leading-tight">Import Book</h2>
-            <p className="text-sm text-text-secondary mt-1 opacity-70">Search metadata from Open Library</p>
+            <p className="text-sm text-text-secondary mt-1 opacity-70">Search metadata from Google Books</p>
           </div>
         </div>
 
