@@ -1,6 +1,6 @@
 "use client";
 
-import { motion, Variants } from "framer-motion";
+import { motion } from "framer-motion";
 import Image from "next/image";
 
 const genres = [
@@ -10,12 +10,12 @@ const genres = [
   { name: "Sci-Fi", color: "#3A86FF", image: "/books/scifi.png" },
 ];
 
-const containerVariants: Variants = {
+const containerVariants = {
   hidden: {},
   visible: { transition: { staggerChildren: 0.15 } },
 };
 
-const cardVariants: Variants = {
+const cardVariants = {
   hidden: { opacity: 0, y: 40 },
   visible: { opacity: 1, y: 0, transition: { duration: 0.6, ease: [0.22, 1, 0.36, 1] as [number, number, number, number] } },
 };
@@ -24,10 +24,9 @@ export default function FeaturedGenres() {
   return (
     <section className="py-28 px-6 md:px-10 max-w-[1400px] mx-auto">
       <motion.div
-        initial={{ opacity: 0, y: 20 }}
+        initial={false}
         whileInView={{ opacity: 1, y: 0 }}
-        viewport={{ once: true, margin: "-100px" }}
-        transition={{ duration: 0.6 }}
+        viewport={{ once: false, margin: "-100px" }}
         className="mb-14"
       >
         <p className="text-text-secondary text-sm tracking-[0.3em] uppercase mb-3">Explore</p>
@@ -38,7 +37,7 @@ export default function FeaturedGenres() {
         variants={containerVariants}
         initial="hidden"
         whileInView="visible"
-        viewport={{ once: true, margin: "-100px" }}
+        viewport={{ once: false, margin: "-100px" }}
         className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6"
       >
         {genres.map((genre) => (

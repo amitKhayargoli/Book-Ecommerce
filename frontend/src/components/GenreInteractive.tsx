@@ -105,7 +105,6 @@ export default function GenreInteractive() {
 
   return (
     <section className="py-28 px-6 md:px-10 max-w-[1400px] mx-auto relative overflow-hidden">
-      {/* Ambient glow */}
       <AnimatePresence>
         {activeGenre && (
           <motion.div
@@ -123,10 +122,9 @@ export default function GenreInteractive() {
       </AnimatePresence>
 
       <motion.div
-        initial={{ opacity: 0, y: 20 }}
+        initial={false}
         whileInView={{ opacity: 1, y: 0 }}
-        viewport={{ once: true, margin: "-100px" }}
-        transition={{ duration: 0.6 }}
+        viewport={{ once: false, margin: "-100px" }}
         className="mb-16"
       >
         <p className="text-text-secondary text-sm tracking-[0.3em] uppercase mb-3">Discover</p>
@@ -134,14 +132,13 @@ export default function GenreInteractive() {
       </motion.div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-12 md:gap-20 items-start relative z-10">
-        {/* Genre list (left) */}
         <div className="flex flex-col gap-1">
           {genres.map((genre, i) => (
             <motion.div
               key={genre.name}
-              initial={{ opacity: 0, x: -30 }}
+              initial={false}
               whileInView={{ opacity: 1, x: 0 }}
-              viewport={{ once: true }}
+              viewport={{ once: false }}
               transition={{ duration: 0.5, delay: i * 0.05 }}
               onMouseEnter={() => handleHover(genre)}
               onMouseLeave={() => { setActiveGenre(null); setActiveBook(null); }}
@@ -165,7 +162,6 @@ export default function GenreInteractive() {
           ))}
         </div>
 
-        {/* Book preview (right) */}
         <div className="hidden md:flex items-center justify-center min-h-[500px] relative">
           <AnimatePresence mode="wait">
             {activeBook && activeGenre ? (
