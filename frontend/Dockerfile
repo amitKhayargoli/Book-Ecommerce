@@ -13,7 +13,23 @@ COPY package*.json ./
 RUN npm ci
 
 # ────────────────────────────────────────────────
-#  STAGE 2 : Build — compile Next.js + static assets
+#  STAGE 2 : Development — hot-reload with next dev
+# ────────────────────────────────────────────────
+FROM deps AS development
+
+WORKDIR /app
+
+COPY . .
+
+# Default port for next dev
+ENV PORT=3000
+
+EXPOSE 3000
+
+CMD ["npm", "run", "dev"]
+
+# ────────────────────────────────────────────────
+#  STAGE 3 : Build — compile Next.js + static assets
 # ────────────────────────────────────────────────
 FROM node:20-slim AS build
 
