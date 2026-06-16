@@ -27,10 +27,9 @@ export default function Footer() {
     <footer className="border-t border-white/5">
       <div className="max-w-[1400px] mx-auto px-6 md:px-10 py-20">
         <motion.div
-          initial={{ opacity: 0, y: 20 }}
+          initial={false}
           whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          transition={{ duration: 0.6 }}
+          viewport={{ once: false }}
           className="grid grid-cols-2 md:grid-cols-4 gap-10 mb-20"
         >
           {columns.map((col) => (
@@ -52,11 +51,10 @@ export default function Footer() {
           ))}
         </motion.div>
 
-        {/* Center logo + copyright */}
         <motion.div
-          initial={{ opacity: 0 }}
+          initial={false}
           whileInView={{ opacity: 1 }}
-          viewport={{ once: true }}
+          viewport={{ once: false }}
           transition={{ duration: 0.6, delay: 0.2 }}
           className="flex flex-col items-center gap-6 pt-10 border-t border-white/5"
         >
