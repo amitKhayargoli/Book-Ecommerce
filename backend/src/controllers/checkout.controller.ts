@@ -46,7 +46,9 @@ export class CheckoutController {
 
   verifyKhaltiSuccess = async (req: Request, res: Response): Promise<void> => {
     const { pidx } = req.query as unknown as KhaltiSuccessQueryDto;
-    const verification = await this.service.verifyKhaltiSuccess(pidx);
+    const purchaseOrderId =
+      typeof req.query.purchase_order_id === "string" ? req.query.purchase_order_id : undefined;
+    const verification = await this.service.verifyKhaltiSuccess(pidx, purchaseOrderId);
 
     sendSuccess(res, verification, "Khalti payment verified");
   };

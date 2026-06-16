@@ -540,7 +540,10 @@ export class CheckoutService implements ICheckoutService {
     };
   }
 
-  async verifyKhaltiSuccess(pidx: string): Promise<CheckoutVerificationResponse> {
+  async verifyKhaltiSuccess(
+    pidx: string,
+    purchaseOrderId?: string,
+  ): Promise<CheckoutVerificationResponse> {
     if (!pidx || pidx.trim().length === 0) {
       throw new BadRequestError("pidx is required");
     }
@@ -548,7 +551,13 @@ export class CheckoutService implements ICheckoutService {
     const config = this.getKhaltiConfig();
     const lookup = await this.callKhaltiLookup(pidx, config);
     const status = lookup.status?.toUpperCase() ?? "UNKNOWN";
-    const transactionUuid = this.assertTransactionUuid(lookup.purchase_order_id);
+
+    // The Khalti lookup API does NOT return purchase_order_id in its response.
+    // Use the purchase_order_id from the callback redirect query params instead.
+    if (!purchaseOrderId || !TRANSACTION_UUID_REGEX.test(purchaseOrderId)) {
+      throw new BadRequestError("Invalid transaction_uuid");
+    }
+    const transactionUuid = purchaseOrderId;
 
     const order = await this.repo.findOrderByTransactionUuid(transactionUuid);
     if (!order) {
