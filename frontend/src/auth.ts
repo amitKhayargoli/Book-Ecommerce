@@ -110,6 +110,34 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         }
       }
 
+      // Refresh user profile on existing tokens to pick up role changes
+      if (!user && !account && token.accessToken) {
+        try {
+          const response = await fetch(`${backendBaseUrl}/api/auth/me`, {
+            headers: {
+              Authorization: `Bearer ${token.accessToken}`,
+            },
+            cache: "no-store",
+          });
+
+          if (response.ok) {
+            const payload = (await response.json()) as {
+              success: boolean;
+              data?: {
+                id: string;
+                role: string;
+              };
+            };
+
+            if (payload.success && payload.data) {
+              token.role = payload.data.role;
+            }
+          }
+        } catch {
+          // Keep existing token data on failure
+        }
+      }
+
       return token;
     },
     session: async ({ session, token }) => {
