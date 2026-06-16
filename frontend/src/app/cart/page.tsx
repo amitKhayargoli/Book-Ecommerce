@@ -3,11 +3,11 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { ShoppingCart } from "lucide-react";
 import { auth } from "@/auth";
+import { BACKEND_URL } from "@/lib/server-config";
 import RemoveCartItemButton from "./components/RemoveCartItemButton";
 import ProceedToCheckoutButton from "./components/ProceedToCheckoutButton";
 
-const BACKEND_BASE_URL =
-  process.env.NEXT_PUBLIC_BACKEND_URL ?? "http://localhost:4000";
+const BACKEND_BASE_URL = BACKEND_URL;
 
 interface CartPageItem {
   id: string;

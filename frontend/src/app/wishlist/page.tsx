@@ -2,9 +2,10 @@ import Link from "next/link";
 import Image from "next/image";
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
+import { BACKEND_URL } from "@/lib/server-config";
 import RemoveWishlistButton from "./components/RemoveWishlistButton";
 
-const BACKEND_BASE_URL = process.env.NEXT_PUBLIC_BACKEND_URL ?? "http://localhost:4000";
+const BACKEND_BASE_URL = BACKEND_URL;
 
 interface WishlistPageItem {
   id: string;
