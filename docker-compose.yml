@@ -1,9 +1,10 @@
 services:
-  # ─── MongoDB ───────────────────────────────────
+  # ─── MongoDB (replica set required by Prisma) ──
   mongo:
     image: mongo:7
     container_name: book-mongo
     restart: unless-stopped
+    command: ["--replSet", "rs0", "--bind_ip_all"]
     ports:
       - "27017:27017"
     volumes:
@@ -13,6 +14,26 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+
+  # ─── MongoDB Replica Set Initialiser ────────
+  mongo-init:
+    image: mongo:7
+    container_name: book-mongo-init
+    restart: no
+    depends_on:
+      mongo:
+        condition: service_healthy
+    entrypoint:
+      - /bin/bash
+      - -c
+      - |
+        mongosh --host mongo --eval '
+          try {
+            rs.initiate({ _id: "rs0", members: [{ _id: 0, host: "mongo:27017" }] });
+          } catch(e) {
+            if (e.code !== 23) { throw e; }
+          }
+        '
 
   # ─── Backend (Express API) ────────────────────
   backend:
@@ -26,6 +47,7 @@ services:
     restart: unless-stopped
     ports:
       - "4000:3001"
+      - "5555:5555"
     env_file:
       - ./backend/.env
     environment:
@@ -33,8 +55,8 @@ services:
       - NODE_ENV=${NODE_ENV:-development}
       - CORS_ORIGIN=http://localhost:3000
     depends_on:
-      mongo:
-        condition: service_healthy
+      mongo-init:
+        condition: service_completed_successfully
     volumes:
       # Hot-reload: source code mounts over the container's copy
       - ./backend/src:/app/src
@@ -60,8 +82,8 @@ services:
       # Client-side (baked into JS bundle at build time — reachable via host)
       - NEXT_PUBLIC_BACKEND_URL=http://localhost:4000
       - NEXTAUTH_URL=http://localhost:3000
-      # Generate a strong secret with: openssl rand -base64 32
-      - NEXTAUTH_SECRET=${NEXTAUTH_SECRET:?NEXTAUTH_SECRET is required — run: openssl rand -base64 32}
+      - NEXTAUTH_SECRET=${NEXTAUTH_SECRET}
+      - AUTH_TRUST_HOST=true
     depends_on:
       - backend
 

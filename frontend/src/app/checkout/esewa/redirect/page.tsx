@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef } from "react";
+import { Suspense, useEffect, useMemo, useRef } from "react";
 import { useSearchParams } from "next/navigation";
 
 interface RedirectPayload {
@@ -30,7 +30,7 @@ function decodePayload(rawPayload: string | null): RedirectPayload | null {
   }
 }
 
-export default function EsewaRedirectPage() {
+function EsewaRedirectContent() {
   const searchParams = useSearchParams();
   const formRef = useRef<HTMLFormElement | null>(null);
 
@@ -81,5 +81,20 @@ export default function EsewaRedirectPage() {
         </form>
       </section>
     </main>
+  );
+}
+
+export default function EsewaRedirectPage() {
+  return (
+    <Suspense fallback={
+      <main className="min-h-screen pt-24 pb-20 px-6 md:px-10 max-w-[900px] mx-auto w-full">
+        <section className="rounded-2xl border border-white/10 bg-card/40 backdrop-blur-sm p-8 text-center">
+          <h1 className="font-display text-3xl font-semibold">Loading</h1>
+          <p className="text-text-secondary mt-3">Preparing your payment session...</p>
+        </section>
+      </main>
+    }>
+      <EsewaRedirectContent />
+    </Suspense>
   );
 }
