@@ -1,0 +1,69 @@
+services:
+  # ─── MongoDB ───────────────────────────────────
+  mongo:
+    image: mongo:7
+    container_name: book-mongo
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+    healthcheck:
+      test: echo 'db.runCommand("ping").ok' | mongosh --quiet
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ─── Backend (Express API) ────────────────────
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+      # "development" stage: hot-reload via ts-node + volume mounts
+      # Switch to "production" for deployment builds
+      target: ${BACKEND_TARGET:-development}
+    container_name: book-backend
+    restart: unless-stopped
+    ports:
+      - "4000:3001"
+    env_file:
+      - ./backend/.env
+    environment:
+      - DATABASE_URL=mongodb://mongo:27017/bookstore
+      - NODE_ENV=${NODE_ENV:-development}
+      - CORS_ORIGIN=http://localhost:3000
+    depends_on:
+      mongo:
+        condition: service_healthy
+    volumes:
+      # Hot-reload: source code mounts over the container's copy
+      - ./backend/src:/app/src
+
+  # ─── Frontend (Next.js) ───────────────────────
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      target: production
+      args:
+        # Baked into the JS bundle so the browser can reach the backend
+        - NEXT_PUBLIC_BACKEND_URL=http://localhost:4000
+    container_name: book-frontend
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    env_file:
+      - ./frontend/.env
+    environment:
+      # Server-side (used by API routes + next-auth inside the Docker network)
+      - BACKEND_URL=http://backend:3001
+      # Client-side (baked into JS bundle at build time — reachable via host)
+      - NEXT_PUBLIC_BACKEND_URL=http://localhost:4000
+      - NEXTAUTH_URL=http://localhost:3000
+      # Generate a strong secret with: openssl rand -base64 32
+      - NEXTAUTH_SECRET=${NEXTAUTH_SECRET:?NEXTAUTH_SECRET is required — run: openssl rand -base64 32}
+    depends_on:
+      - backend
+
+volumes:
+  mongo_data:

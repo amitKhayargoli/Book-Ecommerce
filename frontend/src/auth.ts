@@ -1,9 +1,9 @@
 import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import Google from "next-auth/providers/google";
+import { BACKEND_URL } from "@/lib/server-config";
 
-const backendBaseUrl =
-  process.env.NEXT_PUBLIC_BACKEND_URL ?? "http://localhost:4000";
+const backendBaseUrl = BACKEND_URL;
 
 const providers = [
   Credentials({
