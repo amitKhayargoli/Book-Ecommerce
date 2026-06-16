@@ -7,6 +7,7 @@ import {
   hanldeGetBookById,
 } from "@/app/admin/books/actions/book-actions";
 import { getReviewsAction } from "./actions/review-actions";
+import ImageGallery from "./components/ImageGallery";
 import WishlistButton from "./components/WishlistButton";
 import AddReviewButton from "./components/AddReviewButton";
 import AddToCartButton from "./components/AddToCartButton";
@@ -19,7 +20,9 @@ interface ApiBookDetail {
   stock: number;
   coverImage?: string;
   mockupImage?: string | null;
+  previewImages?: string[];
   reviewCount: number;
+  discountPrice?: number | null;
   author?: { name?: string };
   genres?: Array<{ name?: string }>;
 }
@@ -28,6 +31,7 @@ interface ApiBookListItem {
   id: string;
   title: string;
   price?: number;
+  discountPrice?: number | null;
   coverImage?: string;
   author?: { name?: string };
 }
@@ -115,6 +119,10 @@ function formatReviewDate(value: string): string {
   }).format(date);
 }
 
+function isLocalUpload(url: string): boolean {
+  return url.startsWith("http://localhost:4000/");
+}
+
 function formatPrice(value: number): string {
   return new Intl.NumberFormat("en-US", {
     style: "currency",
@@ -159,15 +167,19 @@ export default async function BookProductPage({
     .filter((candidate) => candidate.id !== bookData.id)
     .slice(0, 4);
 
-  const images = [bookData.coverImage, bookData.mockupImage]
-    .filter((image): image is string => Boolean(image))
-    .concat([
-      "/books/scifi.png",
-      "/books/fantasy.png",
-      "/books/mystery.png",
-      "/books/romance.png",
-    ])
-    .slice(0, 4);
+  // Use previewImages from backend (populated from Google Books on import),
+  // fall back to coverImage + mockupImage, then placeholders
+  const images = bookData.previewImages && bookData.previewImages.length > 0
+    ? bookData.previewImages.slice(0, 4)
+    : [bookData.coverImage, bookData.mockupImage]
+        .filter((image): image is string => Boolean(image))
+        .concat([
+          "/books/scifi.png",
+          "/books/fantasy.png",
+          "/books/mystery.png",
+          "/books/romance.png",
+        ])
+        .slice(0, 4);
 
   const averageRating =
     reviews.length > 0
@@ -241,36 +253,7 @@ export default async function BookProductPage({
         {/* Hero Section: Media & Details */}
         <section className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-20 mb-24">
           {/* Left Column: Images */}
-          <div className="flex flex-col gap-4">
-            <div className="bg-card w-full aspect-[3/4] md:aspect-square rounded-xl flex items-center justify-center p-8 relative overflow-hidden group">
-              <div className="absolute inset-0 bg-gradient-to-tr from-scifi/5 to-transparent opacity-50"></div>
-              <Image
-                src={book.images[0]}
-                alt={book.title}
-                width={400}
-                height={600}
-                className="object-contain w-full h-full max-h-[600px] z-10 drop-shadow-[0_20px_50px_rgba(0,0,0,0.5)] transition-transform duration-700 group-hover:scale-105"
-                priority
-              />
-            </div>
-
-            <div className="grid grid-cols-4 gap-4">
-              {book.images.map((img, idx) => (
-                <button
-                  key={idx}
-                  className="bg-card aspect-square rounded-lg flex items-center justify-center p-2 relative overflow-hidden border border-white/5 hover:border-white/20 transition-all"
-                >
-                  <Image
-                    src={img}
-                    alt={`Thumbnail ${idx + 1}`}
-                    width={100}
-                    height={150}
-                    className="object-contain w-full h-full max-h-[100px] drop-shadow-[0_10px_20px_rgba(0,0,0,0.4)]"
-                  />
-                </button>
-              ))}
-            </div>
-          </div>
+          <ImageGallery images={book.images} title={book.title} />
 
           {/* Right Column: Product Info */}
           <div className="flex flex-col justify-start pt-4 lg:pr-10">
@@ -379,6 +362,7 @@ export default async function BookProductPage({
                     alt={relatedBook.title}
                     fill
                     className="object-contain drop-shadow-[0_10px_20px_rgba(0,0,0,0.4)] transition-transform duration-500 group-hover:scale-105 group-hover:rotate-1"
+                    unoptimized={isLocalUpload(relatedBook.coverImage || book.images[index % book.images.length])}
                   />
                 </div>
                 <h3 className="font-display font-semibold mb-1 w-full truncate text-center">

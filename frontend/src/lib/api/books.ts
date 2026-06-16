@@ -39,7 +39,7 @@ export const bookEndpoints = {
     api.get<BookResponse>(`/api/books/${id}`),
 
   updateBook: (id: string, payload: Partial<BookPayload>, config?: AxiosRequestConfig) =>
-    api.put<BookResponse>(`/api/books/${id}`, payload, config),
+    api.patch<BookResponse>(`/api/books/${id}`, payload, config),
 
   deleteBook: (id: string, config?: AxiosRequestConfig) =>
     api.delete<BookResponse>(`/api/books/${id}`, config),
