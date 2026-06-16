@@ -173,11 +173,7 @@ export function PublicBooksCatalog({ books }: PublicBooksCatalogProps) {
                     </div>
                   )}
 
-                  <div className="absolute bottom-0 left-0 w-full p-6 translate-y-8 opacity-0 group-hover:translate-y-0 group-hover:opacity-100 transition-all duration-500 z-20 flex justify-center">
-                    <span className="bg-white/90 backdrop-blur-md text-black text-xs font-bold uppercase tracking-widest py-2.5 px-6 rounded-full inline-block">
-                      View Details
-                    </span>
-                  </div>
+
                 </div>
 
                 <div className="px-1">
