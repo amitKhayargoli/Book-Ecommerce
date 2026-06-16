@@ -9,6 +9,7 @@ interface SaveActionsBarProps {
   currentStep?: number;
   onPrevStep?: () => void;
   isReviewStep?: boolean;
+  saveLabel?: string;
 }
 
 export function SaveActionsBar({
@@ -20,6 +21,7 @@ export function SaveActionsBar({
   currentStep,
   onPrevStep,
   isReviewStep = false,
+  saveLabel = "Publish Book",
 }: SaveActionsBarProps) {
   // If not on review step, this is rendered inline with the Continue button
   if (!isReviewStep) return null;
@@ -65,7 +67,7 @@ export function SaveActionsBar({
           className="flex items-center gap-3 px-8 py-3.5 text-sm font-black text-black bg-white hover:bg-white/90 rounded-2xl transition-all shadow-xl shadow-white/5 active:scale-95 uppercase tracking-tighter"
         >
           <CheckCircle className="w-4 h-4" />
-          {isSaving ? "Saving..." : "Publish Book"}
+          {isSaving ? "Saving..." : saveLabel}
         </button>
       </div>
     </div>

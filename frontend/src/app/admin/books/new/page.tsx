@@ -9,6 +9,7 @@ import { BookFormData, OpenLibraryResult, ValidationErrors } from "./types";
 import { mapOpenLibraryToFormData, validateBookForm } from "./utils";
 import { CheckCircle2, ArrowLeft, ArrowRight, ChevronLeft, ChevronRight } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import { useRouter } from "next/navigation";
 import { handleCreateBook, ServerActionResult } from "../actions/book-actions";
 import { BookPayload } from "@/lib/api/books";
 
@@ -85,6 +86,7 @@ export default function AddBookPage() {
   const [requestError, setRequestError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [isHydrated, setIsHydrated] = useState(false);
+  const router = useRouter();
   const [importPanelOpen, setImportPanelOpen] = useState(true);
 
   // ── Multi-step state ──────────────────────────────────────────
@@ -273,10 +275,14 @@ export default function AddBookPage() {
       .then((result: ServerActionResult<unknown>) => {
         if (result.success) {
           setErrors({});
-          setSuccessMessage("Book created successfully and stored in MongoDB.");
+          setSuccessMessage("Book created successfully! Redirecting...");
           localStorage.removeItem(DRAFT_STORAGE_KEY);
           setCompletedSteps([]);
           setStepErrors({});
+          // Redirect to books list after a brief delay so user sees the success message
+          setTimeout(() => {
+            router.replace("/admin/books");
+          }, 1200);
         } else {
           setRequestError(result.error || "Failed to create book");
         }

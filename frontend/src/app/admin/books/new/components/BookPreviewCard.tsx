@@ -104,15 +104,26 @@ export function BookPreviewCard({ data }: BookPreviewCardProps) {
             {displayAuthor}
           </p>
           <div className="flex items-center justify-center gap-3">
-            <p className="text-romance font-black text-2xl tracking-tighter">
-              {displayPrice}
-            </p>
             {data.discountPrice &&
-              Number(data.discountPrice) < Number(data.price) && (
-                <p className="text-white/20 line-through text-sm font-bold">
-                  NPR {data.discountPrice.toString()}
+              Number(data.discountPrice) < Number(data.price) ? (
+              <>
+                <p className="text-romance font-black text-2xl tracking-tighter">
+                  NPR {data.discountPrice}
                 </p>
-              )}
+                <div className="flex flex-col items-start">
+                  <p className="text-white/20 line-through text-sm font-bold">
+                    {displayPrice}
+                  </p>
+                  <span className="text-[10px] font-bold text-adventure bg-adventure/10 border border-adventure/20 px-2 py-0.5 rounded-full mt-1">
+                    Save {Math.round((1 - Number(data.discountPrice) / Number(data.price)) * 100)}%
+                  </span>
+                </div>
+              </>
+            ) : (
+              <p className="text-romance font-black text-2xl tracking-tighter">
+                {displayPrice}
+              </p>
+            )}
           </div>
         </div>
 

@@ -4,8 +4,21 @@ import { GenreSelector } from "./GenreSelector";
 import { SubjectChips } from "./SubjectChips";
 import { PreviewImagesField } from "./PreviewImagesField";
 import { BookPreviewCard } from "./BookPreviewCard";
+import { ImageUploadField } from "./ImageUploadField";
 import { cn, generateSlug } from "../utils";
 import { STEPS } from "./FormStepIndicator";
+
+// Defined outside the component so its identity is stable across re-renders.
+// If defined inline, React sees a new component type every render and remounts children → focus loss.
+const InputWrapper = ({ label, error, required, children }: { label: string, error?: string, required?: boolean, children: React.ReactNode }) => (
+  <div className="space-y-2">
+    <label className="block text-sm font-semibold text-white/50 tracking-wide uppercase">
+      {label} {required && <span className="text-romance">*</span>}
+    </label>
+    {children}
+    {error && <p className="text-xs font-bold text-romance mt-2 flex items-center gap-1.5"><span className="w-1 h-1 rounded-full bg-romance" /> {error}</p>}
+  </div>
+);
 
 interface BookFormProps {
   data: BookFormData;
@@ -24,16 +37,6 @@ export function BookForm({ data, onChange, errors, currentStep }: BookFormProps)
       onChange({ [name]: value });
     }
   };
-
-  const InputWrapper = ({ label, error, required, children }: { label: string, error?: string, required?: boolean, children: React.ReactNode }) => (
-    <div className="space-y-2">
-      <label className="block text-sm font-semibold text-white/50 tracking-wide uppercase">
-        {label} {required && <span className="text-romance">*</span>}
-      </label>
-      {children}
-      {error && <p className="text-xs font-bold text-romance mt-2 flex items-center gap-1.5"><span className="w-1 h-1 rounded-full bg-romance" /> {error}</p>}
-    </div>
-  );
 
   return (
     <div className="flex flex-col xl:flex-row gap-8">
@@ -199,15 +202,15 @@ function PricingStep({
     <BookFormSection title="Pricing & Inventory" description="Pricing, stock levels, and visibility controls.">
       <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
         <InputWrapper label="Base Price (NPR)" error={errors.price} required>
-          <input type="number" name="price" value={data.price} onChange={handleChange} step="0.01" min="0" placeholder="0.00" className={cn("w-full px-5 py-3 bg-white/[0.03] border rounded-2xl text-white placeholder:text-white/20 focus:outline-none focus:ring-2 focus:ring-white/10", errors.price ? "border-romance/50 focus:border-romance" : "border-white/5 focus:border-white/20")} />
+          <input type="text" inputMode="decimal" name="price" value={data.price} onChange={handleChange} placeholder="0.00" className={cn("w-full px-5 py-3 bg-white/[0.03] border rounded-2xl text-white placeholder:text-white/20 focus:outline-none focus:ring-2 focus:ring-white/10", errors.price ? "border-romance/50 focus:border-romance" : "border-white/5 focus:border-white/20")} />
         </InputWrapper>
 
         <InputWrapper label="Discount Price (NPR)" error={errors.discountPrice}>
-          <input type="number" name="discountPrice" value={data.discountPrice} onChange={handleChange} step="0.01" min="0" placeholder="0.00" className={cn("w-full px-5 py-3 bg-white/[0.03] border rounded-2xl text-white placeholder:text-white/20 focus:outline-none focus:ring-2 focus:ring-white/10", errors.discountPrice ? "border-romance/50 focus:border-romance" : "border-white/5 focus:border-white/20")} />
+          <input type="text" inputMode="decimal" name="discountPrice" value={data.discountPrice} onChange={handleChange} placeholder="0.00" className={cn("w-full px-5 py-3 bg-white/[0.03] border rounded-2xl text-white placeholder:text-white/20 focus:outline-none focus:ring-2 focus:ring-white/10", errors.discountPrice ? "border-romance/50 focus:border-romance" : "border-white/5 focus:border-white/20")} />
         </InputWrapper>
 
         <InputWrapper label="Stock Quantity" error={errors.stock} required>
-          <input type="number" name="stock" value={data.stock} onChange={handleChange} min="0" placeholder="0" className={cn("w-full px-5 py-3 bg-white/[0.03] border rounded-2xl text-white placeholder:text-white/20 focus:outline-none focus:ring-2 focus:ring-white/10", errors.stock ? "border-romance/50 focus:border-romance" : "border-white/5 focus:border-white/20")} />
+          <input type="text" inputMode="numeric" name="stock" value={data.stock} onChange={handleChange} placeholder="0" className={cn("w-full px-5 py-3 bg-white/[0.03] border rounded-2xl text-white placeholder:text-white/20 focus:outline-none focus:ring-2 focus:ring-white/10", errors.stock ? "border-romance/50 focus:border-romance" : "border-white/5 focus:border-white/20")} />
         </InputWrapper>
       </div>
 
@@ -256,21 +259,30 @@ function PricingStep({
 // ─── Step 4: Media ──────────────────────────────────────────────
 function MediaStep({
   data, onChange,
-  InputWrapper, handleChange
+  InputWrapper
 }: {
   data: BookFormData;
   onChange: (data: Partial<BookFormData>) => void;
   InputWrapper: React.FC<{ label: string; error?: string; required?: boolean; children: React.ReactNode }>;
-  handleChange: React.ChangeEventHandler<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>;
 }) {
   return (
     <BookFormSection title="Media & Assets" description="Book covers, marketing mockups, and interior previews.">
-      <InputWrapper label="Primary Cover Image URL">
-        <input type="url" name="coverImageUrl" value={data.coverImageUrl} onChange={handleChange} placeholder="https://covers.openlibrary.org/b/id/..." className="w-full px-5 py-3 bg-white/[0.03] border border-white/5 rounded-2xl text-white placeholder:text-white/20 focus:outline-none focus:ring-2 focus:ring-white/10" />
+      <InputWrapper label="Primary Cover Image">
+        <ImageUploadField
+          value={data.coverImageUrl}
+          onChange={(url) => onChange({ coverImageUrl: url })}
+          placeholder="https://covers.openlibrary.org/b/id/..."
+          uploadLabel="Upload Cover"
+        />
       </InputWrapper>
       
-      <InputWrapper label="Marketing Mockup Image URL">
-        <input type="url" name="mockupImageUrl" value={data.mockupImageUrl} onChange={handleChange} placeholder="https://..." className="w-full px-5 py-3 bg-white/[0.03] border border-white/5 rounded-2xl text-white placeholder:text-white/20 focus:outline-none focus:ring-2 focus:ring-white/10" />
+      <InputWrapper label="Marketing Mockup Image">
+        <ImageUploadField
+          value={data.mockupImageUrl}
+          onChange={(url) => onChange({ mockupImageUrl: url })}
+          placeholder="https://..."
+          uploadLabel="Upload Mockup"
+        />
       </InputWrapper>
 
       <div className="pt-2 border-t border-white/5 mt-8 pt-8">
