@@ -60,6 +60,8 @@ services:
     volumes:
       # Hot-reload: source code mounts over the container's copy
       - ./backend/src:/app/src
+      # Persist uploaded files
+      - backend_uploads:/app/uploads
 
   # ─── Frontend (Next.js) ───────────────────────
   frontend:
@@ -90,3 +92,4 @@ services:
 
 volumes:
   mongo_data:
+  backend_uploads:
