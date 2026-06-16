@@ -44,7 +44,7 @@ export class BookService implements IBookService {
   async createBook(dto: CreateBookDto): Promise<BookResponse> {
     const slugTaken = await this.repo.existsBySlug(dto.slug);
     if (slugTaken)
-      throw new ConflictError(`Slug "${dto.slug}" is already in use`);
+      throw new ConflictError(`Book has already been added in the Database.`);
 
     const authorId =
       dto.authorId ??
@@ -90,7 +90,41 @@ export class BookService implements IBookService {
   async updateBook(id: string, dto: UpdateBookDto): Promise<BookResponse> {
     const exists = await this.repo.existsById(id);
     if (!exists) throw new NotFoundError("Book");
-    return toBookResponse(await this.repo.update(id, dto));
+
+    // Resolve author if authorName is provided (update authorId accordingly)
+    let authorId: string | undefined;
+    if (dto.authorName) {
+      authorId = await this.repo.findOrCreateAuthorByName(dto.authorName);
+    }
+
+    // Resolve publisher if publisherName is provided
+    let publisherId: string | undefined;
+    if (dto.publisherName) {
+      publisherId = await this.repo.findOrCreatePublisherByName(dto.publisherName);
+    }
+
+    // Resolve genres if genreNames is provided
+    let genreIds: string[] | undefined;
+    if (dto.genreNames && dto.genreNames.length > 0) {
+      genreIds = await this.repo.findOrCreateGenresByNames(dto.genreNames);
+    }
+
+    // Strip name fields that Prisma doesn't understand
+    const {
+      authorName: _authorName,
+      publisherName: _publisherName,
+      genreNames: _genreNames,
+      ...cleanDto
+    } = dto;
+
+    const updatePayload = {
+      ...cleanDto,
+      ...(authorId !== undefined && { authorId }),
+      ...(publisherId !== undefined && { publisherId }),
+      ...(genreIds !== undefined && { genreIds }),
+    };
+
+    return toBookResponse(await this.repo.update(id, updatePayload));
   }
 
   async deleteBook(id: string): Promise<void> {

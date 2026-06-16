@@ -38,9 +38,13 @@ export type BookRecord = Prisma.BookGetPayload<{
     slug: true;
     description: true;
     price: true;
+    discountPrice: true;
     stock: true;
     coverImage: true;
     mockupImage: true;
+    previewImages: true;
+    language: true;
+    publishedAt: true;
     featured: true;
     trending: true;
     createdAt: true;
@@ -82,9 +86,13 @@ export interface BookResponse {
   slug: string;
   description: string;
   price: number;
+  discountPrice: number | null;
   stock: number;
   coverImage: string;
   mockupImage: string | null;
+  previewImages: string[];
+  language: string | null;
+  publishedAt: Date | null;
   featured: boolean;
   trending: boolean;
   inStock: boolean; // computed: stock > 0
@@ -107,10 +115,12 @@ export interface BookSummary {
   title: string;
   slug: string;
   price: number;
+  discountPrice: number | null;
   stock: number;
   inStock: boolean;
   coverImage: string;
   mockupImage: string | null;
+  previewImages: string[];
   featured: boolean;
   trending: boolean;
   author: Pick<BookAuthor, "id" | "name" | "slug">;
@@ -251,9 +261,13 @@ export function toBookResponse(record: BookRecord): BookResponse {
     slug: record.slug,
     description: record.description,
     price: record.price,
+    discountPrice: record.discountPrice ?? null,
     stock: record.stock,
     coverImage: record.coverImage,
     mockupImage: record.mockupImage,
+    previewImages: record.previewImages,
+    language: record.language ?? null,
+    publishedAt: record.publishedAt ?? null,
     featured: record.featured,
     trending: record.trending,
     inStock: record.stock > 0,
@@ -275,10 +289,12 @@ export function toBookSummary(record: BookRecord): BookSummary {
     title: record.title,
     slug: record.slug,
     price: record.price,
+    discountPrice: record.discountPrice ?? null,
     stock: record.stock,
     inStock: record.stock > 0,
     coverImage: record.coverImage,
     mockupImage: record.mockupImage,
+    previewImages: record.previewImages,
     featured: record.featured,
     trending: record.trending,
     author: {
