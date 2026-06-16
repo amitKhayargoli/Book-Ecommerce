@@ -1,6 +1,7 @@
 import Link from "next/link";
+import { BACKEND_URL } from "@/lib/server-config";
 
-const BACKEND_BASE_URL = process.env.NEXT_PUBLIC_BACKEND_URL ?? "http://localhost:4000";
+const BACKEND_BASE_URL = BACKEND_URL;
 
 interface VerificationResponse {
   success: boolean;
@@ -141,10 +142,6 @@ export default async function CheckoutSuccessPage({
           {paid
             ? "Your order has been confirmed and your cart was updated."
             : verification?.message ?? "Unable to verify payment details."}
-        </p>
-
-        <p className="text-text-secondary mt-2 text-sm uppercase tracking-wide">
-          Provider: {provider === "khalti" ? "Khalti" : "eSewa"}
         </p>
 
         {verification?.data ? (
