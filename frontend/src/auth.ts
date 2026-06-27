@@ -11,20 +11,73 @@ const providers = [
     credentials: {
       email: { label: "Email", type: "email" },
       password: { label: "Password", type: "password" },
+      captchaToken: { label: "CAPTCHA", type: "text" },
+      accessToken: { label: "Access Token", type: "text" },
     },
     authorize: async (credentials) => {
+      // ─── MFA flow: pre-verified access token passed directly ──
+      const preVerifiedToken = credentials?.accessToken;
+      if (preVerifiedToken && typeof preVerifiedToken === "string") {
+        // Validate the token by fetching user profile
+        const profileResponse = await fetch(`${backendBaseUrl}/api/auth/me`, {
+          headers: { Authorization: `Bearer ${preVerifiedToken}` },
+        });
+
+        if (!profileResponse.ok) {
+          console.error(
+            `[NextAuth] MFA authorize: Profile fetch returned ${profileResponse.status} for pre-verified token`,
+          );
+          return null;
+        }
+
+        const profilePayload = (await profileResponse.json()) as {
+          success: boolean;
+          data?: { id: string; name: string; email: string; role: string };
+        };
+
+        if (!profilePayload.success || !profilePayload.data) {
+          console.error(
+            "[NextAuth] MFA authorize: Backend rejected pre-verified token",
+            profilePayload,
+          );
+          return null;
+        }
+
+        return {
+          id: profilePayload.data.id,
+          name: profilePayload.data.name,
+          email: profilePayload.data.email,
+          role: profilePayload.data.role,
+          accessToken: preVerifiedToken,
+        };
+      }
+
+      // ─── Normal flow: email + password login ─────────────────
       const email = credentials?.email;
       const password = credentials?.password;
+      const captchaToken = credentials?.captchaToken;
 
-      if (!email || !password) return null;
+      if (!email || !password) {
+        console.warn(
+          "[NextAuth] Authorize: Missing email or password in credentials",
+        );
+        return null;
+      }
 
       const response = await fetch(`${backendBaseUrl}/api/auth/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ email, password, captchaToken }),
       });
 
-      if (!response.ok) return null;
+      if (!response.ok) {
+        const errorBody = await response.text().catch(() => "(unreadable)");
+        console.error(
+          `[NextAuth] Authorize: Login returned ${response.status} for ${email}`,
+          errorBody,
+        );
+        return null;
+      }
 
       const payload = (await response.json()) as {
         success: boolean;
@@ -52,11 +105,11 @@ const providers = [
   }),
   ...(process.env.AUTH_GOOGLE_ID && process.env.AUTH_GOOGLE_SECRET
     ? [
-        Google({
-          clientId: process.env.AUTH_GOOGLE_ID,
-          clientSecret: process.env.AUTH_GOOGLE_SECRET,
-        }),
-      ]
+      Google({
+        clientId: process.env.AUTH_GOOGLE_ID,
+        clientSecret: process.env.AUTH_GOOGLE_SECRET,
+      }),
+    ]
     : []),
 ];
 

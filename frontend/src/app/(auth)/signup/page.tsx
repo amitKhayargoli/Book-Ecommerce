@@ -3,10 +3,21 @@
 import { motion } from "framer-motion";
 import { User, Mail, Lock, ArrowRight } from "lucide-react";
 import Link from "next/link";
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { handleRegister } from "../actions/auth-action";
+
+declare global {
+  interface Window {
+    turnstile?: {
+      render: (container: HTMLElement, options: {
+        sitekey: string;
+        callback: (token: string) => void;
+      }) => void;
+    };
+  }
+}
 
 export default function SignupPage() {
   const router = useRouter();
@@ -16,6 +27,42 @@ export default function SignupPage() {
   const [focusedInput, setFocusedInput] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null);
+  const [mounted, setMounted] = useState(false);
+
+  const turnstileRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    if (!mounted) return;
+
+    const script = document.createElement("script");
+    script.id = "turnstile-script";
+    script.src = "https://challenges.cloudflare.com/turnstile/v0/api.js";
+    script.async = true;
+    script.defer = true;
+
+    script.onload = () => {
+      if (window.turnstile && turnstileRef.current) {
+        window.turnstile.render(turnstileRef.current, {
+          sitekey: process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY!,
+          callback: (token: string) => {
+            setCaptchaToken(token);
+          },
+        });
+      }
+    };
+
+    document.head.appendChild(script);
+
+    return () => {
+      const existing = document.getElementById("turnstile-script");
+      if (existing) existing.remove();
+    };
+  }, [mounted]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -27,6 +74,7 @@ export default function SignupPage() {
       name,
       email,
       password,
+      captchaToken: captchaToken || undefined,
     });
 
     if (!registerResult.success) {
@@ -213,6 +261,13 @@ export default function SignupPage() {
               >
                 {error}
               </motion.p>
+            )}
+
+            {/* CAPTCHA — client-only to avoid hydration mismatch */}
+            {mounted && (
+              <div className="flex justify-center mt-4">
+                <div ref={turnstileRef} />
+              </div>
             )}
 
             <button
