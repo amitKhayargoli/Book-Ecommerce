@@ -11,3 +11,20 @@ export interface AuthTokensResponse {
   accessToken: string;
   user: AuthUserPayload;
 }
+
+export interface MfaChallengeResponse {
+  mfaRequired: true;
+  mfaToken: string;
+}
+
+export interface MfaSetupResponse {
+  secret: string;
+  qrCode: string;
+  provisioningUri: string;
+}
+
+export interface MfaStatusResponse {
+  isMfaEnabled: boolean;
+}
+
+export type LoginResult = AuthTokensResponse | MfaChallengeResponse;
