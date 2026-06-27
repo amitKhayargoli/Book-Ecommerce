@@ -5,6 +5,7 @@ import fs from "fs";
 import { UploadController } from "../controllers/upload.controller";
 import { asyncHandler } from "../middlewares/asyncHandler";
 import { authMiddleware } from "../middlewares/auth.middleware";
+import { adminMiddleware } from "../middlewares/admin.middleware";
 
 // ─── Ensure uploads directory exists ───────────────────────────────
 const uploadsDir = path.resolve(__dirname, "../../uploads");
@@ -59,6 +60,7 @@ const controller = new UploadController();
 router.post(
   "/",
   authMiddleware,
+  adminMiddleware,
   upload.single("image"),
   asyncHandler(controller.uploadImage),
 );

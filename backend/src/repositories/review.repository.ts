@@ -1,8 +1,7 @@
-import { PrismaClient } from "@prisma/client";
+import prisma from "../lib/prisma";
 import { CreateReviewDto, ReviewQueryDto } from "../dto/review.dto";
 import { IReviewRepository, ReviewRecord, reviewSelect } from "../types/review.types";
 
-const prisma = new PrismaClient();
 
 export class ReviewRepository implements IReviewRepository {
   async findManyByBookId(bookId: string, query: ReviewQueryDto): Promise<{ reviews: ReviewRecord[]; total: number }> {

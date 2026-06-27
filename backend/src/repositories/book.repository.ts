@@ -1,11 +1,10 @@
-import { Prisma, PrismaClient } from "@prisma/client";
+import { Prisma } from "@prisma/client";
+import prisma from "../lib/prisma";
 import {
   CreateBookDbDto,
   UpdateBookDto,
   BookQueryDto,
 } from "../dto/book.dto";
-
-const prisma = new PrismaClient();
 
 const slugify = (value: string): string =>
   value

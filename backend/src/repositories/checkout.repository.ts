@@ -1,6 +1,5 @@
-import { PaymentStatus, Prisma, PrismaClient } from "@prisma/client";
-
-const prisma = new PrismaClient();
+import { PaymentStatus, Prisma } from "@prisma/client";
+import prisma from "../lib/prisma";
 
 export interface CheckoutCartItemRecord {
   bookId: string;
