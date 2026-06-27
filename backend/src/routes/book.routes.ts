@@ -10,6 +10,7 @@ import {
 } from "../dto/book.dto";
 import { CreateReviewSchema, ReviewQuerySchema } from "../dto/review.dto";
 import { authMiddleware } from "../middlewares/auth.middleware";
+import { adminMiddleware } from "../middlewares/admin.middleware";
 
 const router = Router();
 const controller = new BookController();
@@ -42,13 +43,14 @@ router.get(
 );
 
 // ─────────────────────────────────────────────────────────────────
-//  PROTECTED ROUTES  (attach auth middleware here when ready)
+//  PROTECTED ROUTES 
 //  e.g.   router.use(authMiddleware);
 // ─────────────────────────────────────────────────────────────────
 
 router.post(
   "/",
   authMiddleware,
+  adminMiddleware,
   validate(CreateBookSchema),
   asyncHandler(controller.createBook),
 );
@@ -56,6 +58,7 @@ router.post(
 router.patch(
   "/:id",
   authMiddleware,
+  adminMiddleware,  
   validate(UpdateBookSchema),
   asyncHandler(controller.updateBook),
 );
@@ -63,6 +66,7 @@ router.patch(
 router.delete(
   "/:id",
   authMiddleware,
+  adminMiddleware,
   asyncHandler(controller.deleteBook),
 );
 
@@ -76,12 +80,14 @@ router.post(
 router.patch(
   "/:id/toggle-featured",
   authMiddleware,
+  adminMiddleware,
   asyncHandler(controller.toggleFeatured),
 );
 
 router.patch(
   "/:id/toggle-trending",
   authMiddleware,
+  adminMiddleware,
   asyncHandler(controller.toggleTrending),
 );
 
