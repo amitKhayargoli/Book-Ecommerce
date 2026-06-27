@@ -44,3 +44,32 @@ export function verifyAccessToken(token: string): AuthUserPayload {
     role: decoded.role,
   };
 }
+
+/**
+ * Sign a short-lived MFA challenge token (5 minutes).
+ * Used to carry the user's identity from password verification to TOTP verification.
+ */
+export function signMfaChallengeToken(user: { id: string; email: string }): string {
+  return jwt.sign(
+    { sub: user.id, email: user.email, purpose: "mfa_challenge" },
+    getJwtSecret(),
+    { expiresIn: "5m" },
+  );
+}
+
+/**
+ * Verify an MFA challenge token and return the user ID.
+ */
+export function verifyMfaChallengeToken(token: string): { id: string; email: string } {
+  const decoded = jwt.verify(token, getJwtSecret()) as JwtPayload & {
+    sub: string;
+    email: string;
+    purpose: string;
+  };
+
+  if (decoded.purpose !== "mfa_challenge") {
+    throw new Error("Invalid token purpose");
+  }
+
+  return { id: decoded.sub, email: decoded.email };
+}

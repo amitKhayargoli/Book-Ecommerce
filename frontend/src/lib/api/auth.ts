@@ -25,6 +25,17 @@ export interface AuthTokensResponse {
   user: AuthUser;
 }
 
+export interface MfaChallengeResponse {
+  mfaRequired: true;
+  mfaToken: string;
+}
+
+export interface MfaSetupResponse {
+  secret: string;
+  qrCode: string;
+  provisioningUri: string;
+}
+
 export interface AuthResponse<T> {
   success: boolean;
   message?: string;
@@ -37,8 +48,24 @@ export const authEndpoints = {
     api.post<AuthResponse<AuthTokensResponse>>("/api/auth/register", payload, config),
 
   login: (payload: LoginPayload, config?: AxiosRequestConfig) =>
-    api.post<AuthResponse<AuthTokensResponse>>("/api/auth/login", payload, config),
+    api.post<AuthResponse<AuthTokensResponse | MfaChallengeResponse>>("/api/auth/login", payload, config),
 
   me: (config?: AxiosRequestConfig) =>
     api.get<AuthResponse<AuthUser>>("/api/auth/me", config),
+
+  // MFA endpoints
+  verifyMfaLogin: (payload: { mfaToken: string; totpCode: string }, config?: AxiosRequestConfig) =>
+    api.post<AuthResponse<AuthTokensResponse>>("/api/auth/mfa/verify-login", payload, config),
+
+  mfaStatus: (config?: AxiosRequestConfig) =>
+    api.get<AuthResponse<{ isMfaEnabled: boolean }>>("/api/auth/mfa/status", config),
+
+  setupMfa: (config?: AxiosRequestConfig) =>
+    api.post<AuthResponse<MfaSetupResponse>>("/api/auth/mfa/setup", {}, config),
+
+  enableMfa: (payload: { secret: string; totpCode: string }, config?: AxiosRequestConfig) =>
+    api.post<AuthResponse<{ message: string }>>("/api/auth/mfa/enable", payload, config),
+
+  disableMfa: (payload: { totpCode: string }, config?: AxiosRequestConfig) =>
+    api.post<AuthResponse<{ message: string }>>("/api/auth/mfa/disable", payload, config),
 };

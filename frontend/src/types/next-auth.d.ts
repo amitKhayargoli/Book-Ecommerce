@@ -3,6 +3,8 @@ import { DefaultSession } from "next-auth";
 declare module "next-auth" {
   interface Session {
     accessToken?: string;
+    mfaRequired?: boolean;
+    mfaToken?: string;
     user: DefaultSession["user"] & {
       id: string;
       role: string;
@@ -20,5 +22,7 @@ declare module "next-auth/jwt" {
     id?: string;
     role?: string;
     accessToken?: string;
+    mfaRequired?: boolean;
+    mfaToken?: string;
   }
 }

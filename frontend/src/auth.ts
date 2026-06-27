@@ -92,7 +92,13 @@ const providers = [
         };
       };
 
-      if (!payload.success || !payload.data) return null;
+      if (!payload.success || !payload.data) {
+        console.error(
+          `[NextAuth] Authorize: Backend rejected login for ${email}`,
+          payload,
+        );
+        return null;
+      }
 
       return {
         id: payload.data.user.id,
@@ -130,6 +136,11 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       }
 
       if (account?.provider === "google" && token.email) {
+        const idToken = account.id_token;  // Google provides this in the account object
+        if (!idToken) {
+          console.error("[NextAuth] Google OAuth: No ID token available for", token.email);
+          return token;
+        }
         try {
           const response = await fetch(`${backendBaseUrl}/api/auth/oauth/google`, {
             method: "POST",
@@ -137,28 +148,58 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             body: JSON.stringify({
               name: token.name ?? "Google User",
               email: token.email,
+              idToken,
             }),
           });
 
           if (response.ok) {
             const payload = (await response.json()) as {
               success: boolean;
+              message?: string;
               data?: {
-                accessToken: string;
-                user: {
+                accessToken?: string;
+                mfaRequired?: boolean;
+                mfaToken?: string;
+                user?: {
                   id: string;
                   role: string;
                 };
               };
             };
 
-            if (payload.success && payload.data) {
-              token.id = payload.data.user.id;
-              token.role = payload.data.user.role;
+            if (payload.data?.mfaRequired && payload.data?.mfaToken) {
+              // MFA is required — store the challenge token, don't set accessToken
+              console.log(`[NextAuth] Google OAuth: MFA required for ${token.email}`);
+              token.mfaRequired = true;
+              token.mfaToken = payload.data.mfaToken;
+              token.accessToken = undefined;
+              // Use the email as a provisional identifier until MFA is verified
+              token.role = token.role ?? "CUSTOMER";
+            } else if (payload.success && payload.data?.accessToken) {
+              token.id = payload.data.user?.id ?? token.id;
+              token.role = payload.data.user?.role ?? token.role ?? "CUSTOMER";
               token.accessToken = payload.data.accessToken;
+              token.mfaRequired = undefined;
+              token.mfaToken = undefined;
+            } else {
+              console.error(
+                `[NextAuth] Google OAuth: Backend rejected the token for ${token.email}`,
+                payload,
+              );
             }
+          } else {
+            const errorBody = await response.text().catch(() => "(unreadable)");
+            console.error(
+              `[NextAuth] Google OAuth: Backend returned ${response.status} for ${token.email}`,
+              errorBody,
+            );
           }
-        } catch {
+        } catch (err) {
+          console.error(
+            `[NextAuth] Google OAuth: Network error exchanging token for ${token.email}`,
+            err instanceof TypeError ? err.message : err,
+            `(backendBaseUrl: ${backendBaseUrl})`,
+          );
           token.role = token.role ?? "CUSTOMER";
         }
       }
@@ -184,9 +225,23 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
 
             if (payload.success && payload.data) {
               token.role = payload.data.role;
+            } else {
+              console.warn(
+                `[NextAuth] Profile refresh: Backend returned success=false for user ${token.email ?? token.id}`,
+                payload,
+              );
             }
+          } else {
+            console.warn(
+              `[NextAuth] Profile refresh: Backend returned ${response.status} for user ${token.email ?? token.id}`,
+            );
           }
-        } catch {
+        } catch (err) {
+          console.warn(
+            `[NextAuth] Profile refresh: Network error for user ${token.email ?? token.id}`,
+            err instanceof TypeError ? err.message : err,
+            `(backendBaseUrl: ${backendBaseUrl})`,
+          );
           // Keep existing token data on failure
         }
       }
@@ -199,10 +254,19 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         session.user.role = (token.role as string) ?? "";
       }
       session.accessToken = token.accessToken as string | undefined;
+      session.mfaRequired = token.mfaRequired as boolean | undefined;
+      session.mfaToken = token.mfaToken as string | undefined;
       return session;
     },
     authorized: async ({ auth: authState, request }) => {
       const pathname = request.nextUrl.pathname;
+
+      // If MFA is pending (Google OAuth with MFA enabled), redirect to login
+      if (authState?.mfaRequired && pathname !== "/login") {
+        const callback = encodeURIComponent(pathname);
+        return Response.redirect(new URL(`/login?mfa_pending=true&callbackUrl=${callback}`, request.url));
+      }
+
       if (pathname.startsWith("/admin")) {
         return authState?.user?.role === "ADMIN";
       }

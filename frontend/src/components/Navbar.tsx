@@ -49,7 +49,7 @@ export default function Navbar() {
         </div>
 
         {/* Center logo */}
-        <Link href="/" className="flex items-center gap-2 ml-20">
+        <Link href="/" className="flex items-center gap-2 ml-40">
           <div className="grid grid-cols-2 gap-[3px]">
             <div className="w-2.5 h-2.5 rounded-full bg-white" />
             <div className="w-2.5 h-2.5 rounded-full bg-white" />
@@ -67,6 +67,13 @@ export default function Navbar() {
                 className="relative hidden md:block text-sm text-text-secondary hover:text-white transition-colors duration-300 group"
               >
                 Wishlist
+                <span className="absolute -bottom-1 left-0 w-0 h-[1px] bg-white group-hover:w-full transition-all duration-300" />
+              </Link>
+              <Link
+                href="/mfa/settings"
+                className="relative hidden md:block text-sm text-text-secondary hover:text-white transition-colors duration-300 group"
+              >
+                Security
                 <span className="absolute -bottom-1 left-0 w-0 h-[1px] bg-white group-hover:w-full transition-all duration-300" />
               </Link>
               <button

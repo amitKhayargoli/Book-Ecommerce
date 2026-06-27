@@ -62,9 +62,10 @@ export async function handleLogin(
 ): Promise<ServerActionResult<AuthTokensResponse>> {
   try {
     const response = await authEndpoints.login(payload);
+    // Cast needed because login can also return MfaChallengeResponse
     return {
       success: response.data.success,
-      data: response.data.data,
+      data: response.data.data as AuthTokensResponse | undefined,
     };
   } catch (err: unknown) {
     return {
