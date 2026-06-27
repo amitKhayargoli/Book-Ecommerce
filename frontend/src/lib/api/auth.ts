@@ -5,6 +5,7 @@ export interface RegisterPayload {
   name: string;
   email: string;
   password: string;
+  captchaToken?: string;
 }
 
 export interface LoginPayload {
