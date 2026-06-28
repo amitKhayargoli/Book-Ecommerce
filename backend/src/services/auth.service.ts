@@ -36,6 +36,8 @@ const SALT_ROUNDS = 12;
 
 const MAX_FAILED_ATTEMPTS = 15;
 const LOCKOUT_DURATION_MS = 30 * 60 * 1000; // 30 minutes
+const PASSWORD_HISTORY_LIMIT = 5; // Remember last 5 passwords to prevent reuse
+const PASSWORD_EXPIRY_DAYS = 90; // Force password change every 90 days
 const googleClient = new OAuth2Client(process.env.AUTH_GOOGLE_ID);
 
 export class AuthService {
@@ -80,10 +82,19 @@ export class AuthService {
         password: passwordHash,
         role: UserRole.CUSTOMER,
         emailVerified: null,
+        passwordChangedAt: new Date(),
       },
       select: {
         id: true,
         email: true,
+      },
+    });
+
+    // Save password hash to password history (reuse prevention)
+    await prisma.passwordHistory.create({
+      data: {
+        userId: user.id,
+        hash: passwordHash,
       },
     });
 
@@ -135,6 +146,7 @@ export class AuthService {
         isMfaEnabled: true,
         emailVerified: true,
         tokenVersion: true,
+        passwordChangedAt: true,
       },
     });
 
@@ -143,9 +155,20 @@ export class AuthService {
       throw new UnauthorizedError("Invalid email or password");
     }
 
-    // ─── Check email verification ────────────────────────────────────
-    if (!user.emailVerified) {
+    // ─── Check email verification (skipped in dev for easier testing) ─
+    if (!user.emailVerified && process.env.NODE_ENV !== "development") {
       throw new BadRequestError("Please verify your email before signing in. Check your inbox or request a new verification link.");
+    }
+
+    // ─── Check password expiry ────────────────────────────────────────
+    if (user.passwordChangedAt) {
+      const expiredAt = new Date(user.passwordChangedAt.getTime() + PASSWORD_EXPIRY_DAYS * 24 * 60 * 60 * 1000);
+      if (expiredAt < new Date()) {
+        this.audit.log("login_failed", this.ctx({ userId: user.id, email: user.email, ...auditCtx, metadata: { reason: "password_expired" } }));
+        throw new BadRequestError(
+          "Your password has expired. Please reset your password.",
+        );
+      }
     }
 
     // ─── Check account lockout ────────────────────────────────────────
@@ -450,6 +473,23 @@ export class AuthService {
 
     const passwordHash = await bcrypt.hash(dto.password, SALT_ROUNDS);
 
+    // ─── Check password reuse ────────────────────────────────────────
+    const recentHashes = await prisma.passwordHistory.findMany({
+      where: { userId: record.userId },
+      orderBy: { createdAt: "desc" },
+      take: PASSWORD_HISTORY_LIMIT,
+    });
+
+    for (const entry of recentHashes) {
+      const isReused = await bcrypt.compare(dto.password, entry.hash);
+      if (isReused) {
+        this.audit.log("password_reset_failed", this.ctx({ userId: record.userId, ...auditCtx, metadata: { reason: "password_reused" } }));
+        throw new BadRequestError(
+          `This password has been used recently. Please choose a different password.`,
+        );
+      }
+    }
+
     // Update password and mark token as used in a transaction
     await prisma.$transaction([
       prisma.user.update({
@@ -459,6 +499,7 @@ export class AuthService {
           tokenVersion: { increment: 1 },
           failedLoginAttempts: 0,
           lockoutUntil: null,
+          passwordChangedAt: new Date(),
         },
       }),
       prisma.passwordResetToken.update({
@@ -466,6 +507,26 @@ export class AuthService {
         data: { usedAt: new Date() },
       }),
     ]);
+
+    // Save new hash to password history
+    await prisma.passwordHistory.create({
+      data: {
+        userId: record.userId,
+        hash: passwordHash,
+      },
+    });
+
+    // Clean up old history entries beyond the limit
+    const allEntries = await prisma.passwordHistory.findMany({
+      where: { userId: record.userId },
+      orderBy: { createdAt: "desc" },
+      skip: PASSWORD_HISTORY_LIMIT,
+    });
+    if (allEntries.length > 0) {
+      await prisma.passwordHistory.deleteMany({
+        where: { id: { in: allEntries.map((e) => e.id) } },
+      });
+    }
 
     this.audit.log("password_reset_success", this.ctx({ userId: record.userId, ...auditCtx }));
 
