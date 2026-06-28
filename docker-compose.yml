@@ -60,6 +60,8 @@ services:
     volumes:
       # Hot-reload: source code mounts over the container's copy
       - ./backend/src:/app/src
+      # Hot-reload: Prisma schema so schema changes don't require a full rebuild
+      - ./backend/prisma:/app/prisma
       # Persist uploaded files
       - backend_uploads:/app/uploads
 
