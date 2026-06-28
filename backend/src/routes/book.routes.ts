@@ -11,6 +11,7 @@ import {
 import { CreateReviewSchema, ReviewQuerySchema } from "../dto/review.dto";
 import { authMiddleware } from "../middlewares/auth.middleware";
 import { adminMiddleware } from "../middlewares/admin.middleware";
+import { perUserRateLimit } from "../middlewares/rateLimiter.middleware";
 
 const router = Router();
 const controller = new BookController();
@@ -47,10 +48,16 @@ router.get(
 //  e.g.   router.use(authMiddleware);
 // ─────────────────────────────────────────────────────────────────
 
+// 30 admin operations per 15 minutes per admin
+const adminLimiter = perUserRateLimit(30);
+// 20 review submissions per 15 minutes per user
+const reviewLimiter = perUserRateLimit(20);
+
 router.post(
   "/",
   authMiddleware,
   adminMiddleware,
+  adminLimiter,
   validate(CreateBookSchema),
   asyncHandler(controller.createBook),
 );
@@ -59,6 +66,7 @@ router.patch(
   "/:id",
   authMiddleware,
   adminMiddleware,  
+  adminLimiter,
   validate(UpdateBookSchema),
   asyncHandler(controller.updateBook),
 );
@@ -67,12 +75,14 @@ router.delete(
   "/:id",
   authMiddleware,
   adminMiddleware,
+  adminLimiter,
   asyncHandler(controller.deleteBook),
 );
 
 router.post(
   "/:id/reviews",
   authMiddleware,
+  reviewLimiter,
   validate(CreateReviewSchema),
   asyncHandler(reviewController.createReview)
 );
@@ -81,6 +91,7 @@ router.patch(
   "/:id/toggle-featured",
   authMiddleware,
   adminMiddleware,
+  adminLimiter,
   asyncHandler(controller.toggleFeatured),
 );
 
@@ -88,6 +99,7 @@ router.patch(
   "/:id/toggle-trending",
   authMiddleware,
   adminMiddleware,
+  adminLimiter,
   asyncHandler(controller.toggleTrending),
 );
 
