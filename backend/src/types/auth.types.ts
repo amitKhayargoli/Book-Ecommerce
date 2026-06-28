@@ -6,6 +6,7 @@ export interface AuthUserPayload {
   email: string;
   role: UserRole;
   tokenVersion: number;
+  userAgentHash?: string;
 }
 
 export interface AuthTokensResponse {

@@ -130,7 +130,7 @@ export class AuthService {
     };
   }
 
-  async login(dto: LoginDto, auditCtx?: AuditContext): Promise<LoginResult> {
+  async login(dto: LoginDto, auditCtx?: AuditContext, userAgentHash?: string): Promise<LoginResult> {
     const normalizedEmail = dto.email.toLowerCase();
 
     const user = await prisma.user.findUnique({
@@ -245,6 +245,7 @@ export class AuthService {
       email: user.email,
       role: user.role,
       tokenVersion: user.tokenVersion,
+      userAgentHash,
     };
 
     return {
@@ -253,7 +254,7 @@ export class AuthService {
     };
   }
 
-  async loginWithGoogle(dto: GoogleOAuthDto, auditCtx?: AuditContext): Promise<AuthTokensResponse> {
+  async loginWithGoogle(dto: GoogleOAuthDto, auditCtx?: AuditContext, userAgentHash?: string): Promise<AuthTokensResponse> {
     const normalizedEmail = dto.email.toLowerCase();
 
     const existingUser = await prisma.user.findUnique({
@@ -544,7 +545,7 @@ export class AuthService {
   // ────────────────────────────────────────────────────────────────────
 
   /** Step 2 of login: verify TOTP or backup code after password check */
-  async verifyMfaLogin(dto: MfaVerifyLoginDto, auditCtx?: AuditContext): Promise<AuthTokensResponse> {
+  async verifyMfaLogin(dto: MfaVerifyLoginDto, auditCtx?: AuditContext, userAgentHash?: string): Promise<AuthTokensResponse> {
     const payload = verifyMfaChallengeToken(dto.mfaToken);
 
     const user = await prisma.user.findUnique({

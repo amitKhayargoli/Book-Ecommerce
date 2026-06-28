@@ -1,4 +1,5 @@
 import { Request, Response, NextFunction } from "express";
+import crypto from "crypto";
 import { verifyAccessToken } from "../utils/jwt";
 import { AuthUserPayload } from "../types/auth.types";
 import prisma from "../lib/prisma";
@@ -10,6 +11,13 @@ function extractBearerToken(header?: string): string | null {
   const [scheme, token] = header.split(" ");
   if (scheme !== "Bearer" || !token) return null;
   return token;
+}
+
+/** Hash the User-Agent header for session binding comparison */
+function hashUserAgent(req: Request): string | undefined {
+  const ua = req.headers["user-agent"];
+  if (!ua) return undefined;
+  return crypto.createHash("sha256").update(ua as string).digest("hex");
 }
 
 export async function authMiddleware(
@@ -36,6 +44,18 @@ export async function authMiddleware(
     if (!user || user.tokenVersion !== payload.tokenVersion) {
       res.status(401).json({ success: false, message: "Session expired. Please sign in again." });
       return;
+    }
+
+    // ─── Session binding: verify User-Agent hash matches ──────────
+    if (payload.userAgentHash) {
+      const currentHash = hashUserAgent(req);
+      if (currentHash && currentHash !== payload.userAgentHash) {
+        res.status(401).json({
+          success: false,
+          message: "Session invalid: device or browser mismatch. Please sign in again.",
+        });
+        return;
+      }
     }
 
     (req as AuthenticatedRequest).user = payload;
