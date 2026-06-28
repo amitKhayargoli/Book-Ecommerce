@@ -5,6 +5,7 @@ export interface AuthUserPayload {
   name: string;
   email: string;
   role: UserRole;
+  tokenVersion: number;
 }
 
 export interface AuthTokensResponse {
@@ -25,6 +26,33 @@ export interface MfaSetupResponse {
 
 export interface MfaStatusResponse {
   isMfaEnabled: boolean;
+}
+
+export interface BackupCodesResponse {
+  codes: string[];
+  message: string;
+}
+
+export interface BackupCodesStatus {
+  remaining: number;
+}
+
+export interface ForgotPasswordResponse {
+  message: string;
+  resetUrl?: string;
+}
+
+export interface ResetPasswordResponse {
+  message: string;
+}
+
+export interface VerifyEmailResponse {
+  message: string;
+}
+
+export interface RegisterResponse {
+  message: string;
+  verificationUrl?: string;
 }
 
 export type LoginResult = AuthTokensResponse | MfaChallengeResponse;

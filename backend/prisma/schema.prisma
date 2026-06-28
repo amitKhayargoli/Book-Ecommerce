@@ -22,14 +22,20 @@ model User {
   failedLoginAttempts Int       @default(0)
   lockoutUntil        DateTime?
 
+  emailVerified DateTime?
+
   totpSecret    String? @default("")
   isMfaEnabled  Boolean @default(false)
+  tokenVersion  Int     @default(0)
 
   cart      Cart?
   orders    Order[]
-  reviews   Review[]
-  wishlist  Wishlist?
-  addresses Address[]
+  reviews         Review[]
+  wishlist        Wishlist?
+  addresses       Address[]
+  passwordResets  PasswordResetToken[]
+  backupCodes         BackupCode[]
+  verificationTokens  VerificationToken[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -214,6 +220,52 @@ model WishlistItem {
   updatedAt DateTime @updatedAt
 
   @@unique([wishlistId, bookId])
+}
+
+model AuditLog {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  event     String
+  userId    String?
+  email     String?
+  ip        String?
+  userAgent String?
+  metadata  Json?
+  createdAt DateTime @default(now())
+
+  @@index([event])
+  @@index([userId])
+  @@index([createdAt])
+}
+
+model BackupCode {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId    String   @db.ObjectId
+  user      User     @relation(fields: [userId], references: [id])
+  code      String
+  usedAt    DateTime?
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+}
+
+model PasswordResetToken {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId    String   @db.ObjectId
+  user      User     @relation(fields: [userId], references: [id])
+  token     String   @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime @default(now())
+}
+
+model VerificationToken {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId    String   @db.ObjectId
+  user      User     @relation(fields: [userId], references: [id])
+  token     String   @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime @default(now())
 }
 
 model Address {
