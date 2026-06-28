@@ -7,6 +7,7 @@ import {
   AuthUser,
   LoginPayload,
   RegisterPayload,
+  RegisterResponse,
 } from "@/lib/api/auth";
 
 export interface ServerActionResult<T> {
@@ -42,7 +43,7 @@ function getErrorMessage(err: unknown, fallback: string): string {
 
 export async function handleRegister(
   payload: RegisterPayload,
-): Promise<ServerActionResult<AuthTokensResponse>> {
+): Promise<ServerActionResult<RegisterResponse>> {
   try {
     const response = await authEndpoints.register(payload);
     return {
