@@ -296,7 +296,7 @@ export class AuthService {
 
     this.audit.log("google_oauth_success", this.ctx({ userId: user.id, email: normalizedEmail, ...auditCtx }));
 
-    return this.buildAuthResponse(user);
+    return this.buildAuthResponse(user, userAgentHash);
   }
 
   // ────────────────────────────────────────────────────────────────────
