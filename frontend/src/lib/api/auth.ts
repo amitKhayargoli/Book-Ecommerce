@@ -59,7 +59,7 @@ export interface AuthResponse<T> {
 
 export const authEndpoints = {
   register: (payload: RegisterPayload, config?: AxiosRequestConfig) =>
-    api.post<AuthResponse<AuthTokensResponse>>("/api/auth/register", payload, config),
+    api.post<AuthResponse<RegisterResponse>>("/api/auth/register", payload, config),
 
   login: (payload: LoginPayload, config?: AxiosRequestConfig) =>
     api.post<AuthResponse<AuthTokensResponse | MfaChallengeResponse>>("/api/auth/login", payload, config),
