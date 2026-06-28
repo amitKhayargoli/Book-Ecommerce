@@ -15,8 +15,12 @@ import {
   KeyRound,
   ScanLine,
   QrCode,
+  Copy,
+  RefreshCw,
+  Eye,
+  EyeOff,
 } from "lucide-react";
-import { authEndpoints, MfaSetupResponse } from "@/lib/api/auth";
+import { authEndpoints, MfaSetupResponse, BackupCodesResponse } from "@/lib/api/auth";
 
 type PageState =
   | "loading"        // initial status check
@@ -43,8 +47,15 @@ export default function MfaSettingsPage() {
   const [disableTotp, setDisableTotp] = useState("");
   const [disableLoading, setDisableLoading] = useState(false);
 
+  // Backup codes state
+  const [backupCodes, setBackupCodes] = useState<string[] | null>(null);
+  const [backupCodesVisible, setBackupCodesVisible] = useState(false);
+  const [backupCodesLoading, setBackupCodesLoading] = useState(false);
+  const [remainingBackupCodes, setRemainingBackupCodes] = useState<number | null>(null);
+
   // Copy feedback
   const [copied, setCopied] = useState(false);
+  const [allCopied, setAllCopied] = useState(false);
 
   // Redirect to login if not authenticated
   useEffect(() => {
@@ -125,12 +136,20 @@ export default function MfaSettingsPage() {
     setErrorMsg(null);
 
     try {
+      // The backend now expects totpOrBackupCode validation (6-digit or 10-char hex)
+      // For initial setup, only TOTP codes make sense (backup codes come after)
       const res = await authEndpoints.enableMfa(
         { secret: setupData.secret, totpCode: setupTotp },
         { headers: { Authorization: `Bearer ${session.accessToken}` } },
       );
       if (res.data.success) {
-        setSuccessMsg("MFA has been enabled successfully.");
+        setSuccessMsg("MFA has been enabled successfully! Save your backup codes below.");
+        const codes = (res.data.data as { backupCodes?: string[] } | undefined)?.backupCodes;
+        if (codes && codes.length > 0) {
+          setBackupCodes(codes);
+          setBackupCodesVisible(true);
+        }
+        setRemainingBackupCodes(10);
         setPageState("enabled");
         setSetupTotp("");
       } else {
@@ -442,6 +461,130 @@ export default function MfaSettingsPage() {
                     when signing in.
                   </p>
                 </div>
+
+                {/* ── Backup Codes ── */}
+                {backupCodes && backupCodes.length > 0 && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-5"
+                  >
+                    <div className="flex items-start gap-3 mb-3">
+                      <AlertCircle className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />
+                      <div>
+                        <h3 className="text-sm font-semibold text-amber-300 mb-1">
+                          Backup Codes — Save These Immediately
+                        </h3>
+                        <p className="text-xs text-amber-400/70 leading-relaxed">
+                          Each backup code can be used only once. If you lose your authenticator
+                          app, use one of these codes to sign in. Keep them in a safe place.
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex gap-3 justify-center mb-4">
+                      {backupCodes.slice(0, 5).map((code, i) => (
+                        <code
+                          key={i}
+                          className={`font-mono text-xs tracking-wider px-2.5 py-1.5 rounded-lg transition-all ${
+                            backupCodesVisible
+                              ? "text-amber-200 bg-amber-500/10"
+                              : "text-transparent bg-amber-500/5 select-none"
+                          }`}
+                        >
+                          {backupCodesVisible ? code : "••••••••••"}
+                        </code>
+                      ))}
+                    </div>
+                    <div className="flex gap-3 justify-center mb-4">
+                      {backupCodes.slice(5, 10).map((code, i) => (
+                        <code
+                          key={i + 5}
+                          className={`font-mono text-xs tracking-wider px-2.5 py-1.5 rounded-lg transition-all ${
+                            backupCodesVisible
+                              ? "text-amber-200 bg-amber-500/10"
+                              : "text-transparent bg-amber-500/5 select-none"
+                          }`}
+                        >
+                          {backupCodesVisible ? code : "••••••••••"}
+                        </code>
+                      ))}
+                    </div>
+
+                    <div className="flex gap-2 justify-center">
+                      <button
+                        type="button"
+                        onClick={() => setBackupCodesVisible(!backupCodesVisible)}
+                        className="flex items-center gap-1.5 text-xs font-medium text-amber-300 hover:text-amber-200 transition-colors px-3 py-1.5 rounded-lg bg-amber-500/5 hover:bg-amber-500/10"
+                      >
+                        {backupCodesVisible ? (
+                          <><EyeOff className="w-3.5 h-3.5" /> Hide</>
+                        ) : (
+                          <><Eye className="w-3.5 h-3.5" /> Reveal</>
+                        )}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          try {
+                            await navigator.clipboard.writeText(backupCodes.join("\n"));
+                            setAllCopied(true);
+                            setTimeout(() => setAllCopied(false), 2000);
+                          } catch { /* clipboard not available */ }
+                        }}
+                        className="flex items-center gap-1.5 text-xs font-medium text-amber-300 hover:text-amber-200 transition-colors px-3 py-1.5 rounded-lg bg-amber-500/5 hover:bg-amber-500/10"
+                      >
+                        <Copy className="w-3.5 h-3.5" />
+                        {allCopied ? "Copied!" : "Copy All"}
+                      </button>
+                    </div>
+                  </motion.div>
+                )}
+
+                {/* ── Remaining Backup Codes / Regenerate ── */}
+                {remainingBackupCodes !== null && (
+                  <div className="flex items-center justify-between bg-white/[0.03] border border-white/[0.06] rounded-xl p-4">
+                    <div>
+                      <span className="text-sm text-text-secondary">
+                        Remaining backup codes:{" "}
+                        <span className="font-semibold text-foreground">{remainingBackupCodes}</span>
+                      </span>
+                      {remainingBackupCodes <= 3 && remainingBackupCodes > 0 && (
+                        <p className="text-xs text-amber-400/70 mt-1">
+                          Low! Consider regenerating new codes.
+                        </p>
+                      )}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        if (!session?.accessToken) return;
+                        setBackupCodesLoading(true);
+                        setErrorMsg(null);
+                        try {
+                          const res = await authEndpoints.regenerateBackupCodes({
+                            headers: { Authorization: `Bearer ${session.accessToken}` },
+                          });
+                          if (res.data.success && res.data.data) {
+                            setBackupCodes(res.data.data.codes);
+                            setBackupCodesVisible(true);
+                            setRemainingBackupCodes(10);
+                            setSuccessMsg("New backup codes generated. Save them in a safe place!");
+                          }
+                        } catch {
+                          setErrorMsg("Failed to regenerate backup codes.");
+                        } finally {
+                          setBackupCodesLoading(false);
+                        }
+                      }}
+                      disabled={backupCodesLoading}
+                      className="flex items-center gap-1.5 text-xs font-medium text-white/70 hover:text-white transition-colors px-3 py-2 rounded-lg bg-white/5 hover:bg-white/10"
+                    >
+                      <RefreshCw className={`w-3.5 h-3.5 ${backupCodesLoading ? "animate-spin" : ""}`} />
+                      Regenerate
+                    </button>
+                  </div>
+                )}
 
                 <button
                   onClick={() => {
