@@ -1,11 +1,9 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { User, Mail, Lock, ArrowRight } from "lucide-react";
+import { User, Mail, Lock, ArrowRight, CheckCircle2, ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import { useState, useEffect, useRef } from "react";
-import { signIn } from "next-auth/react";
-import { useRouter } from "next/navigation";
 import { handleRegister } from "../actions/auth-action";
 
 declare global {
@@ -20,7 +18,6 @@ declare global {
 }
 
 export default function SignupPage() {
-  const router = useRouter();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -64,6 +61,8 @@ export default function SignupPage() {
     };
   }, [mounted]);
 
+  const [registered, setRegistered] = useState<{ message: string; verificationUrl?: string } | null>(null);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -77,37 +76,77 @@ export default function SignupPage() {
       captchaToken: captchaToken || undefined,
     });
 
-    if (!registerResult.success) {
-      setError(registerResult.error || "Failed to register user.");
-      setIsLoading(false);
-      return;
-    }
-
-    const isAdmin = registerResult.data?.user.role === "ADMIN";
-    const callbackUrl = isAdmin ? "/admin" : "/";
-
-    const loginResult = await signIn("credentials", {
-      email,
-      password,
-      redirect: false,
-      callbackUrl,
-    });
-
     setIsLoading(false);
 
-    if (!loginResult || loginResult.error) {
-      setError("Account created, but auto sign in failed. Please sign in manually.");
+    if (!registerResult.success) {
+      setError(registerResult.error || "Failed to register user.");
       return;
     }
 
-    router.push(loginResult.url ?? callbackUrl);
-    router.refresh();
+    // Show verification-pending state — registration no longer auto-logs in
+    setRegistered({
+      message: registerResult.data?.message || "Account created! Please check your email to verify.",
+      verificationUrl: registerResult.data?.verificationUrl,
+    });
   };
 
   const handleGoogleSignUp = () => {
     signIn("google", { callbackUrl: "/" });
   };
 
+  // ─── Verification pending state ──────────────────────────────────────
+  if (registered) {
+    return (
+      <div className="min-h-[calc(100vh-100px)] pt-24 pb-12 flex flex-col justify-center items-center relative overflow-hidden">
+        <div className="absolute inset-0 overflow-hidden pointer-events-none">
+          <div className="absolute -top-[20%] -left-[10%] w-[60vw] h-[60vw] min-w-[500px] opacity-30 mix-blend-screen" style={{ backgroundImage: 'radial-gradient(circle at center, var(--color-fantasy) 0%, transparent 65%)' }} />
+        </div>
+        <motion.div
+          initial={{ opacity: 0, y: 30 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
+          className="w-full max-w-md px-6 z-10 text-center"
+        >
+          <div className="bg-black/40 backdrop-blur-[40px] border border-white/[0.08] rounded-[2rem] p-10 shadow-[0_8px_32px_rgba(0,0,0,0.4)]">
+            <div className="w-16 h-16 mx-auto mb-5 rounded-2xl bg-emerald-500/15 flex items-center justify-center">
+              <CheckCircle2 className="w-8 h-8 text-emerald-400" />
+            </div>
+            <h2 className="font-display text-2xl font-bold text-foreground mb-2">
+              Account created!
+            </h2>
+            <p className="text-text-secondary text-sm mb-6 leading-relaxed">
+              {registered.message}
+            </p>
+
+            {/* Dev-only: show the verification link directly */}
+            {registered.verificationUrl && (
+              <div className="bg-white/[0.03] border border-white/[0.06] rounded-xl p-4 text-left mb-6">
+                <p className="text-xs text-text-secondary/60 uppercase tracking-wider font-medium mb-2">
+                  Development mode — verification link
+                </p>
+                <a
+                  href={registered.verificationUrl}
+                  className="text-xs text-blue-400 hover:text-blue-300 break-all underline underline-offset-2 transition-colors"
+                >
+                  {registered.verificationUrl}
+                </a>
+              </div>
+            )}
+
+            <Link
+              href="/login"
+              className="inline-flex items-center gap-2 bg-white text-black font-semibold font-sans rounded-xl h-12 px-6 hover:bg-white/90 transition-all duration-300 text-sm"
+            >
+              Sign in
+              <ArrowRight className="w-4 h-4" strokeWidth={2} />
+            </Link>
+          </div>
+        </motion.div>
+      </div>
+    );
+  }
+
+  // ─── Registration form ─────────────────────────────────────────────
   return (
     <div className="min-h-[calc(100vh-100px)] pt-24 pb-12 flex flex-col justify-center items-center relative overflow-hidden">
       {/* Background Ambience */}
