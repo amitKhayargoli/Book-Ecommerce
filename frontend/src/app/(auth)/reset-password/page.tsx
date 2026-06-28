@@ -5,6 +5,7 @@ import { Lock, ArrowRight, Loader2, CheckCircle2, AlertCircle, ArrowLeft } from 
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useState } from "react";
+import PasswordStrengthMeter from "../components/PasswordStrengthMeter";
 
 const BACKEND_URL =
   process.env.NEXT_PUBLIC_BACKEND_URL ?? "http://localhost:4000";
@@ -196,6 +197,10 @@ function ResetPasswordForm() {
                   placeholder="••••••••"
                   className="w-full bg-black/50 border border-white/[0.08] rounded-xl py-3.5 pl-12 pr-4 text-white placeholder:text-text-secondary/30 focus:outline-none focus:border-white/20 focus:ring-1 focus:ring-white/20 transition-all font-sans"
                 />
+              </div>
+
+              <div className="mt-2">
+                <PasswordStrengthMeter password={password} />
               </div>
             </div>
 
