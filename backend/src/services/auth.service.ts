@@ -591,6 +591,7 @@ export class AuthService {
       email: user.email,
       role: user.role,
       tokenVersion: user.tokenVersion,
+      userAgentHash,
     });
   }
 
@@ -727,9 +728,9 @@ export class AuthService {
    * Build an auth response with tokenVersion embedded in the JWT.
    * The caller is responsible for including the latest tokenVersion in the user object.
    */
-  private buildAuthResponse(user: AuthUserPayload): AuthTokensResponse {
+  private buildAuthResponse(user: AuthUserPayload, userAgentHash?: string): AuthTokensResponse {
     return {
-      accessToken: signAccessToken(user),
+      accessToken: signAccessToken({ ...user, userAgentHash }),
       user,
     };
   }
