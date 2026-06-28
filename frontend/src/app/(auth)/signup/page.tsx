@@ -1,10 +1,12 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { User, Mail, Lock, ArrowRight, CheckCircle2, ArrowLeft } from "lucide-react";
+import { User, Mail, Lock, ArrowRight, CheckCircle2 } from "lucide-react";
 import Link from "next/link";
 import { useState, useEffect, useRef } from "react";
 import { handleRegister } from "../actions/auth-action";
+import { signIn } from "@/auth";
+import PasswordStrengthMeter from "../components/PasswordStrengthMeter";
 
 declare global {
   interface Window {
@@ -289,6 +291,10 @@ export default function SignupPage() {
                   placeholder="••••••••"
                   className="w-full bg-black/50 border border-white/[0.08] rounded-xl py-3.5 pl-12 pr-4 text-white placeholder:text-text-secondary/30 focus:outline-none focus:border-white/20 focus:ring-1 focus:ring-white/20 transition-all font-sans"
                 />
+              </div>
+
+              <div className="mt-2">
+                <PasswordStrengthMeter password={password} />
               </div>
             </div>
 
