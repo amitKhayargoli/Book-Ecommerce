@@ -36,6 +36,20 @@ export interface MfaSetupResponse {
   provisioningUri: string;
 }
 
+export interface BackupCodesResponse {
+  codes: string[];
+  message: string;
+}
+
+export interface BackupCodesStatusResponse {
+  remaining: number;
+}
+
+export interface RegisterResponse {
+  message: string;
+  verificationUrl?: string;
+}
+
 export interface AuthResponse<T> {
   success: boolean;
   message?: string;
@@ -68,4 +82,18 @@ export const authEndpoints = {
 
   disableMfa: (payload: { totpCode: string }, config?: AxiosRequestConfig) =>
     api.post<AuthResponse<{ message: string }>>("/api/auth/mfa/disable", payload, config),
+
+  // Backup code endpoints
+  regenerateBackupCodes: (config?: AxiosRequestConfig) =>
+    api.post<AuthResponse<BackupCodesResponse>>("/api/auth/mfa/backup-codes/regenerate", {}, config),
+
+  backupCodesStatus: (config?: AxiosRequestConfig) =>
+    api.get<AuthResponse<BackupCodesStatusResponse>>("/api/auth/mfa/backup-codes/status", config),
+
+  // Email verification
+  verifyEmail: (token: string, config?: AxiosRequestConfig) =>
+    api.get<AuthResponse<{ message: string }>>(`/api/auth/verify-email?token=${token}`, config),
+
+  resendVerification: (payload: { email: string }, config?: AxiosRequestConfig) =>
+    api.post<AuthResponse<{ message: string; verificationUrl?: string }>>("/api/auth/resend-verification", payload, config),
 };

@@ -45,6 +45,11 @@ function LoginForm() {
   const [captchaToken, setCaptchaToken] = useState<string | null>(null);
   const [mounted, setMounted] = useState(false);
 
+  // Email verification state
+  const [emailNotVerified, setEmailNotVerified] = useState(false);
+  const [resending, setResending] = useState(false);
+  const [resendSuccess, setResendSuccess] = useState<string | null>(null);
+
   // MFA state
   const [mfaRequired, setMfaRequired] = useState(false);
   const [mfaToken, setMfaToken] = useState<string | null>(null);
@@ -114,7 +119,13 @@ function LoginForm() {
       const result = await response.json();
 
       if (!result.success) {
-        setError(result.message || "Invalid email or password.");
+        // Check if the error is about email verification
+        if (result.message && result.message.toLowerCase().includes("verify your email")) {
+          setEmailNotVerified(true);
+          setError(result.message);
+        } else {
+          setError(result.message || "Invalid email or password.");
+        }
         setIsLoading(false);
         return;
       }
@@ -222,7 +233,8 @@ function LoginForm() {
               transition={{ delay: 0.2, duration: 0.6 }}
               className="text-text-secondary font-sans text-lg"
             >
-              Enter the 6-digit code from your authenticator app.
+              Enter the 6-digit code from your authenticator app
+              or a backup code.
             </motion.p>
           </div>
 
@@ -238,19 +250,24 @@ function LoginForm() {
               <div className="space-y-1.5">
                 <label className="text-sm font-medium text-text-secondary">
                   Verification Code
-                </label>
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  autoComplete="one-time-code"
-                  maxLength={6}
-                  required
-                  value={totpCode}
-                  onChange={(e) => setTotpCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
-                  placeholder="000000"
-                  className="w-full bg-black/50 border border-white/[0.08] rounded-xl py-4 px-4 text-white text-center text-2xl tracking-[0.5em] font-mono placeholder:text-text-secondary/30 focus:outline-none focus:border-white/20 focus:ring-1 focus:ring-white/20 transition-all"
-                  disabled={isLoading}
-                />
+                </label>                  <input
+                    type="text"
+                    inputMode="text"
+                    autoComplete="one-time-code"
+                    maxLength={10}
+                    required
+                    value={totpCode}
+                    onChange={(e) => {
+                      const val = e.target.value.toUpperCase();
+                      // Allow 6-digit codes OR 10-character hex codes (backup codes)
+                      if (/^[0-9A-F]{0,10}$/.test(val)) {
+                        setTotpCode(val);
+                      }
+                    }}
+                    placeholder={totpCode.length <= 6 ? "000000" : "XXXXXXXXXX"}
+                    className="w-full bg-black/50 border border-white/[0.08] rounded-xl py-4 px-4 text-white text-center text-2xl tracking-[0.5em] font-mono placeholder:text-text-secondary/30 focus:outline-none focus:border-white/20 focus:ring-1 focus:ring-white/20 transition-all"
+                    disabled={isLoading}
+                  />
               </div>
 
               {error && (
@@ -261,7 +278,7 @@ function LoginForm() {
 
               <button
                 type="submit"
-                disabled={isLoading || totpCode.length !== 6}
+                disabled={isLoading || (totpCode.length !== 6 && totpCode.length !== 10)}
                 className="w-full bg-white text-black font-semibold font-sans rounded-xl h-14 flex items-center justify-center group hover:bg-white/90 transition-all duration-300 disabled:opacity-50"
               >
                 {isLoading ? (
@@ -429,6 +446,51 @@ function LoginForm() {
             {mounted && (
               <div className="flex justify-center mt-4">
                 <div ref={turnstileRef} />
+              </div>
+            )}
+
+            {emailNotVerified && (
+              <div className="mt-4 p-3 bg-amber-500/10 border border-amber-500/20 rounded-xl text-left">
+                <p className="text-xs text-amber-300/80 font-medium mb-2">
+                  Didn&apos;t receive the email?
+                </p>
+                {resendSuccess ? (
+                  <p className="text-xs text-emerald-400">{resendSuccess}</p>
+                ) : (
+                  <button
+                    type="button"
+                    disabled={resending}
+                    onClick={async () => {
+                      setResending(true);
+                      try {
+                        const res = await fetch(`${BACKEND_URL}/api/auth/resend-verification`, {
+                          method: "POST",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({ email }),
+                        });
+                        const data = await res.json();
+                        if (data.success) {
+                          setResendSuccess(data.message || "Verification link sent!");
+                        } else {
+                          setError(data.message || "Failed to resend.");
+                        }
+                      } catch {
+                        setError("Network error. Please try again.");
+                      } finally {
+                        setResending(false);
+                      }
+                    }}
+                    className="text-xs text-blue-400 hover:text-blue-300 underline underline-offset-2 transition-colors disabled:opacity-50"
+                  >
+                    {resending ? "Sending..." : "Resend verification email"}
+                  </button>
+                )}
+                <Link
+                  href="/forgot-password"
+                  className="block mt-1.5 text-xs text-text-secondary hover:text-white transition-colors underline underline-offset-2"
+                >
+                  Forgot password?
+                </Link>
               </div>
             )}
 
