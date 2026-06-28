@@ -17,12 +17,21 @@ import prisma from "../lib/prisma";
 
 type AuthenticatedRequest = Request & { user?: AuthUserPayload };
 
+import crypto from "crypto";
+
 /** Extract audit context (IP + User-Agent) from the Express request */
 function auditCtx(req: Request) {
   return {
     ip: req.ip ?? req.socket.remoteAddress,
     userAgent: req.headers["user-agent"] as string,
   };
+}
+
+/** Hash the User-Agent header for session binding */
+function userAgentHash(req: Request): string | undefined {
+  const ua = req.headers["user-agent"];
+  if (!ua) return undefined;
+  return crypto.createHash("sha256").update(ua as string).digest("hex");
 }
 
 export class AuthController {
@@ -39,7 +48,7 @@ export class AuthController {
   };
 
   login = async (req: Request, res: Response): Promise<void> => {
-    const result = await this.service.login(req.body as LoginDto, auditCtx(req));
+    const result = await this.service.login(req.body as LoginDto, auditCtx(req), userAgentHash(req));
 
     // If MFA is required, return the challenge response directly
     if ("mfaRequired" in result) {
@@ -55,7 +64,7 @@ export class AuthController {
   };
 
   googleOauth = async (req: Request, res: Response): Promise<void> => {
-    const result = await this.service.loginWithGoogle(req.body as GoogleOAuthDto, auditCtx(req));
+    const result = await this.service.loginWithGoogle(req.body as GoogleOAuthDto, auditCtx(req), userAgentHash(req));
 
     // If MFA is required, return the challenge response directly
     if ("mfaRequired" in result) {
@@ -83,7 +92,7 @@ export class AuthController {
 
   /** Step 2 of login: verify TOTP code after password verification */
   verifyMfaLogin = async (req: Request, res: Response): Promise<void> => {
-    const result = await this.service.verifyMfaLogin(req.body as MfaVerifyLoginDto, auditCtx(req));
+    const result = await this.service.verifyMfaLogin(req.body as MfaVerifyLoginDto, auditCtx(req), userAgentHash(req));
     sendSuccess(res, result, "MFA verification successful");
   };
 
