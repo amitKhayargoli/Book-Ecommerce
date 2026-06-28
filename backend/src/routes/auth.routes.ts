@@ -3,8 +3,9 @@ import rateLimit from "express-rate-limit";
 import { AuthController } from "../controllers/auth.controller";
 import { validate } from "../middlewares/validate.middleware";
 import { asyncHandler } from "../middlewares/asyncHandler";
-import { GoogleOAuthSchema, LoginSchema, MfaDisableSchema, MfaEnableSchema, MfaSetupSchema, MfaVerifyLoginSchema, RegisterSchema } from "../dto/auth.dto";
+import { ForgotPasswordSchema, GoogleOAuthSchema, LoginSchema, MfaDisableSchema, MfaEnableSchema, MfaSetupSchema, MfaVerifyLoginSchema, RegenerateBackupCodesSchema, RegisterSchema, ResendVerificationSchema, ResetPasswordSchema } from "../dto/auth.dto";
 import { authMiddleware } from "../middlewares/auth.middleware";
+import { adminMiddleware } from "../middlewares/admin.middleware";
 import { captchaMiddleware } from "../middlewares/captcha.middleware";
 
 const router = Router();
@@ -61,6 +62,8 @@ const mfaVerifyLimiter = rateLimit({
 });
 
 router.post("/register", authLimiter, captchaMiddleware, validate(RegisterSchema), asyncHandler(controller.register));
+router.get("/verify-email", rateLimit({ windowMs: 15 * 60 * 1000, max: 10, standardHeaders: true, legacyHeaders: false, message: { success: false, message: "Too many requests. Try again after 15 minutes." } }), asyncHandler(controller.verifyEmail));
+router.post("/resend-verification", rateLimit({ windowMs: 15 * 60 * 1000, max: 5, standardHeaders: true, legacyHeaders: false, message: { success: false, message: "Too many requests. Try again after 15 minutes." } }), validate(ResendVerificationSchema), asyncHandler(controller.resendVerification));
 router.post("/login",  loginLimiter, captchaMiddleware, validate(LoginSchema), asyncHandler(controller.login));
 router.post("/oauth/google", googleOAuthLimiter, validate(GoogleOAuthSchema), asyncHandler(controller.googleOauth));
 router.get("/me", authMiddleware, asyncHandler(controller.me));
@@ -71,5 +74,37 @@ router.post("/mfa/verify-login", mfaVerifyLimiter, validate(MfaVerifyLoginSchema
 router.post("/mfa/setup", authMiddleware, validate(MfaSetupSchema), asyncHandler(controller.setupMfa));
 router.post("/mfa/enable", authMiddleware, validate(MfaEnableSchema), asyncHandler(controller.enableMfa));
 router.post("/mfa/disable", authMiddleware, validate(MfaDisableSchema), asyncHandler(controller.disableMfa));
+router.post("/mfa/backup-codes/regenerate", authMiddleware, validate(RegenerateBackupCodesSchema), asyncHandler(controller.regenerateBackupCodes));
+router.get("/mfa/backup-codes/status", authMiddleware, asyncHandler(controller.backupCodesStatus));
+
+// ─── Password Reset Routes ──────────────────────────────────────
+// Strict rate limiting to prevent token enumeration
+const forgotPasswordLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: {
+    success: false,
+    message: "Too many password reset requests. Try again after 15 minutes.",
+  },
+});
+
+const resetPasswordLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: {
+    success: false,
+    message: "Too many reset attempts. Try again after 15 minutes.",
+  },
+});
+
+router.post("/forgot-password", forgotPasswordLimiter, validate(ForgotPasswordSchema), asyncHandler(controller.forgotPassword));
+router.post("/reset-password", resetPasswordLimiter, validate(ResetPasswordSchema), asyncHandler(controller.resetPassword));
+
+// ─── Admin Routes ──────────────────────────────────────────────────
+router.get("/audit-logs", authMiddleware, adminMiddleware, asyncHandler(controller.getAuditLogs));
 
 export default router;
