@@ -6,6 +6,7 @@ interface SignedAuthTokenPayload extends JwtPayload {
   name: string;
   email: string;
   role: AuthUserPayload["role"];
+  tokenVersion: number;
 }
 
 const DEFAULT_EXPIRY = "7d";
@@ -24,6 +25,7 @@ export function signAccessToken(user: AuthUserPayload): string {
     name: user.name,
     email: user.email,
     role: user.role,
+    tokenVersion: user.tokenVersion,
   };
 
   const expiresIn =
@@ -42,6 +44,7 @@ export function verifyAccessToken(token: string): AuthUserPayload {
     name: decoded.name,
     email: decoded.email,
     role: decoded.role,
+    tokenVersion: decoded.tokenVersion,
   };
 }
 
