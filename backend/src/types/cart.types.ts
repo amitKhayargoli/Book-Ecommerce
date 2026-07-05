@@ -13,6 +13,7 @@ export interface CartBookSummary {
 export interface CartItemResponse {
   id: string;
   bookId: string;
+  format: string | null;
   quantity: number;
   createdAt: Date;
   book: CartBookSummary;
@@ -35,6 +36,7 @@ export interface CartCountResponse {
 export interface CartAddItemResponse {
   cartId: string;
   bookId: string;
+  format: string | null;
   added: boolean;
 }
 
@@ -50,7 +52,7 @@ export interface CartStatusResponse {
 }
 
 export interface ICartService {
-  addItem(userId: string, bookId: string): Promise<CartAddItemResponse>;
+  addItem(userId: string, bookId: string, format?: string): Promise<CartAddItemResponse>;
   removeItem(userId: string, bookId: string): Promise<CartRemoveItemResponse>;
   getItemStatus(userId: string, bookId: string): Promise<CartStatusResponse>;
   getCart(userId: string): Promise<CartResponse>;

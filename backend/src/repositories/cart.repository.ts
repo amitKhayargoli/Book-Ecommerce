@@ -33,9 +33,9 @@ export class CartRepository {
     });
   }
 
-  async createItem(cartId: string, bookId: string): Promise<{ id: string }> {
+  async createItem(cartId: string, bookId: string, format?: string): Promise<{ id: string }> {
     return prisma.cartItem.create({
-      data: { cartId, bookId },
+      data: { cartId, bookId, format },
       select: { id: true },
     });
   }
@@ -58,6 +58,7 @@ export class CartRepository {
       select: {
         id: true,
         bookId: true,
+        format: true,
         quantity: true,
         createdAt: true,
         book: {

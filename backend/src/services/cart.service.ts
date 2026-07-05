@@ -24,7 +24,7 @@ export class CartService implements ICartService {
     }
   }
 
-  async addItem(userId: string, bookId: string): Promise<CartAddItemResponse> {
+  async addItem(userId: string, bookId: string, format?: string): Promise<CartAddItemResponse> {
     await this.ensureBookExists(bookId);
 
     let cart = await this.repo.findCartByUserId(userId);
@@ -37,16 +37,18 @@ export class CartService implements ICartService {
       return {
         cartId: cart.id,
         bookId,
+        format: format ?? null,
         added: false,
       };
     }
 
     try {
-      await this.repo.createItem(cart.id, bookId);
+      await this.repo.createItem(cart.id, bookId, format);
 
       return {
         cartId: cart.id,
         bookId,
+        format: format ?? null,
         added: true,
       };
     } catch (error: unknown) {
@@ -54,6 +56,7 @@ export class CartService implements ICartService {
         return {
           cartId: cart.id,
           bookId,
+          format: format ?? null,
           added: false,
         };
       }
@@ -91,6 +94,7 @@ export class CartService implements ICartService {
       bookId: item.bookId,
       quantity: item.quantity,
       createdAt: item.createdAt,
+      format: item.format ?? null,
       book: {
         id: item.book.id,
         title: item.book.title,

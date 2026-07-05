@@ -6,9 +6,10 @@ import { useCart } from "@/components/CartProvider";
 
 interface AddToCartButtonProps {
   bookId: string;
+  format?: string;
 }
 
-export default function AddToCartButton({ bookId }: AddToCartButtonProps) {
+export default function AddToCartButton({ bookId, format }: AddToCartButtonProps) {
   const router = useRouter();
   const { addToCart, removeFromCart, getCartItemStatus } = useCart();
   const [isLoading, setIsLoading] = useState(false);
@@ -39,7 +40,7 @@ export default function AddToCartButton({ bookId }: AddToCartButtonProps) {
 
     setIsLoading(true);
     try {
-      const result = isInCart ? await removeFromCart(bookId) : await addToCart(bookId);
+      const result = isInCart ? await removeFromCart(bookId) : await addToCart(bookId, format);
 
       if (result.needsAuth) {
         router.push(`/login?callbackUrl=${encodeURIComponent(`/books/${bookId}`)}`);

@@ -45,7 +45,7 @@ interface CartContextValue {
   bumpKey: number;
   refreshCount: () => Promise<number>;
   getCartItemStatus: (bookId: string) => Promise<{ inCart: boolean; needsAuth: boolean }>;
-  addToCart: (bookId: string) => Promise<CartActionResult>;
+  addToCart: (bookId: string, format?: string) => Promise<CartActionResult>;
   removeFromCart: (bookId: string) => Promise<CartActionResult>;
 }
 
@@ -178,7 +178,7 @@ export default function CartProvider({ children }: { children: ReactNode }) {
   );
 
   const addToCart = useCallback(
-    async (bookId: string): Promise<CartActionResult> => {
+    async (bookId: string, format?: string): Promise<CartActionResult> => {
       if (status !== "authenticated" || !accessToken) {
         return {
           success: false,
@@ -195,7 +195,7 @@ export default function CartProvider({ children }: { children: ReactNode }) {
             "Content-Type": "application/json",
             Authorization: `Bearer ${accessToken}`,
           },
-          body: JSON.stringify({ bookId }),
+          body: JSON.stringify({ bookId, format }),
         });
       } catch {
         return {
