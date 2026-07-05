@@ -1,4 +1,4 @@
-import rateLimit from "express-rate-limit";
+import rateLimit, { ipKeyGenerator } from "express-rate-limit";
 import { Request } from "express";
 
 type AuthenticatedRequest = Request & { user?: { id: string } };
@@ -21,8 +21,9 @@ export function perUserRateLimit(max: number, windowMs = 15 * 60 * 1000) {
       if (authReq.user?.id) {
         return `user:${authReq.user.id}`;
       }
-      // Fall back to IP for unauthenticated requests
-      return req.ip ?? req.socket.remoteAddress ?? "unknown";
+      // Fall back to IP for unauthenticated requests.
+      // ipKeyGenerator properly normalizes IPv4/IPv6 addresses.
+      return ipKeyGenerator(req.ip ?? req.socket.remoteAddress ?? "unknown");
     },
     message: {
       success: false,
