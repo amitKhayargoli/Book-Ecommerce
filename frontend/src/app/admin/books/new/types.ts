@@ -43,6 +43,7 @@ export interface BookFormData {
   coverImageUrl: string;
   mockupImageUrl: string;
   previewImages: string[];
+  formatPrices: { format: string; price: string }[];
 }
 
 export interface ValidationErrors {

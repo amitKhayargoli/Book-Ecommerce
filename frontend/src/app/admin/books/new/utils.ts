@@ -190,7 +190,19 @@ export function validateBookForm(data: BookFormData): ValidationErrors {
     if (isNaN(discountPrice) || discountPrice < 0) errors.discountPrice = "Check discount price";
     if (discountPrice > price) errors.discountPrice = "Discount cannot exceed price";
   }
-  
+
+  // Validate format prices
+  if (data.formatPrices && data.formatPrices.length > 0) {
+    for (const fp of data.formatPrices) {
+      if (fp.price) {
+        const fpPrice = Number(fp.price);
+        if (isNaN(fpPrice) || fpPrice < 0) {
+          errors[`formatPrice_${fp.format}`] = `${fp.format} price must be 0 or more`;
+        }
+      }
+    }
+  }
+
   const stock = Number(data.stock);
   if (isNaN(stock) || stock < 0) errors.stock = "Stock must be 0 or more";
   

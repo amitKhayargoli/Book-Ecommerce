@@ -11,6 +11,8 @@ import { motion, AnimatePresence } from "framer-motion";
 import { hanldeGetBookById, handleUpdateBook, ServerActionResult } from "../../actions/book-actions";
 import { BookPayload } from "@/lib/api/books";
 
+const FORMAT_NAMES = ["Hardcover", "Paperback", "E-Book", "Audiobook"];
+
 const emptyFormData: BookFormData = {
   title: "",
   slug: "",
@@ -29,6 +31,7 @@ const emptyFormData: BookFormData = {
   coverImageUrl: "",
   mockupImageUrl: "",
   previewImages: [],
+  formatPrices: FORMAT_NAMES.map((format) => ({ format, price: "" })),
 };
 
 // ─── Per-step validation (same as new book page) ─────────────────
@@ -59,6 +62,17 @@ function validateStep(step: number, data: BookFormData): ValidationErrors {
         const discountPrice = Number(data.discountPrice);
         if (isNaN(discountPrice) || discountPrice < 0) errors.discountPrice = "Check discount price";
         if (discountPrice > price) errors.discountPrice = "Discount cannot exceed price";
+      }
+      // Validate format prices
+      if (data.formatPrices && data.formatPrices.length > 0) {
+        for (const fp of data.formatPrices) {
+          if (fp.price) {
+            const fpPrice = Number(fp.price);
+            if (isNaN(fpPrice) || fpPrice < 0) {
+              errors[`formatPrice_${fp.format}`] = `${fp.format} price must be 0 or more`;
+            }
+          }
+        }
       }
       const stock = Number(data.stock);
       if (isNaN(stock) || stock < 0) errors.stock = "Stock must be 0 or more";
@@ -93,6 +107,9 @@ function mapApiBookToFormData(apiBook: Record<string, unknown>): BookFormData {
     subjects: [],
     price: (apiBook.price as number)?.toString() ?? "",
     discountPrice: (apiBook.discountPrice as number)?.toString() ?? "",
+    formatPrices: ((apiBook.formatPrices as Array<{ format: string; price: number }>) ?? []).map(
+      (fp) => ({ format: fp.format, price: fp.price.toString() })
+    ),
     stock: (apiBook.stock as number)?.toString() ?? "0",
     isFeatured: (apiBook.featured as boolean) ?? false,
     isTrending: (apiBook.trending as boolean) ?? false,
@@ -244,6 +261,11 @@ export default function EditBookPage() {
         formData.description.trim() || `No description provided for ${formData.title.trim()}`,
       price: toNumber(formData.price),
       discountPrice: toOptionalNumber(formData.discountPrice),
+      formatPrices: formData.formatPrices
+        ? formData.formatPrices
+            .filter((fp) => fp.price !== "")
+            .map((fp) => ({ format: fp.format, price: Number(fp.price) }))
+        : undefined,
       stock: toNumber(formData.stock),
       publishedAt: formData.publishedYear
         ? `${Number(formData.publishedYear)}-01-01T00:00:00.000Z`
