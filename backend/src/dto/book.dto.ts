@@ -1,5 +1,10 @@
 import { z } from "zod";
 
+const FormatPriceSchema = z.object({
+  format: z.string().min(1),
+  price: z.number().positive("Format price must be positive"),
+});
+
 const BookBaseSchema = z.object({
   title: z.string().min(1, "Title is required").max(255),
   slug: z
@@ -17,6 +22,7 @@ const BookBaseSchema = z.object({
   coverImage: z.string().url("Cover image must be a valid URL"),
   mockupImage: z.string().url("Mockup image must be a valid URL").optional(),
   previewImages: z.array(z.string().url("Preview image must be a valid URL")).optional(),
+  formatPrices: z.array(FormatPriceSchema).optional(),
   featured: z.boolean().default(false),
   trending: z.boolean().default(false),
   authorId: z.string().min(1, "Author ID cannot be empty").optional(),
@@ -78,6 +84,7 @@ export type CreateBookDbDto = Omit<
   "authorName" | "publisherName" | "genreNames"
 > & {
   authorId: string;
+  formatPrices?: Array<{ format: string; price: number }>;
 };
 
 export type UpdateBookDto = z.infer<typeof UpdateBookSchema>;

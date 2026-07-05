@@ -43,8 +43,8 @@ export function BookForm({ data, onChange, errors, currentStep }: BookFormProps)
       <div className="flex-1 space-y-6">
         {currentStep === 1 && <BasicInfoStep data={data} onChange={onChange} errors={errors} InputWrapper={InputWrapper} />}
         {currentStep === 2 && <CatalogStep data={data} onChange={onChange} InputWrapper={InputWrapper} handleChange={handleChange} />}
-        {currentStep === 3 && <PricingStep data={data} errors={errors} InputWrapper={InputWrapper} handleChange={handleChange} />}
-        {currentStep === 4 && <MediaStep data={data} onChange={onChange} InputWrapper={InputWrapper} handleChange={handleChange} />}
+        {currentStep === 3 && <PricingStep data={data} errors={errors} InputWrapper={InputWrapper} onChange={onChange} />}
+        {currentStep === 4 && <MediaStep data={data} onChange={onChange} InputWrapper={InputWrapper} />}
         {currentStep === 5 && <ReviewStep data={data} />}
       </div>
 
@@ -189,36 +189,93 @@ function CatalogStep({
 }
 
 // ─── Step 3: Pricing & Inventory ─────────────────────────────────
-function PricingStep({
-  data, errors,
-  InputWrapper, handleChange
-}: {
+// ─── Step 3: Pricing & Inventory ─────────────────────────────────
+interface PricingStepProps {
   data: BookFormData;
   errors: ValidationErrors;
   InputWrapper: React.FC<{ label: string; error?: string; required?: boolean; children: React.ReactNode }>;
-  handleChange: React.ChangeEventHandler<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>;
-}) {
+  onChange: (data: Partial<BookFormData>) => void;
+}
+
+function PricingStep({
+  data, errors,
+  InputWrapper, onChange
+}: PricingStepProps) {
+  const handlePriceChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    onChange({ price: e.target.value });
+  };
+  const handleDiscountPriceChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    onChange({ discountPrice: e.target.value });
+  };
+  const handleStockChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    onChange({ stock: e.target.value });
+  };
+  const handleFeaturedChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    onChange({ isFeatured: e.target.checked });
+  };
+  const handleTrendingChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    onChange({ isTrending: e.target.checked });
+  };
+  const handleStatusChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    onChange({ status: e.target.value as BookFormData['status'] });
+  };
+  const handleFormatPriceChange = (format: string, value: string) => {
+    const updated = (data.formatPrices || []).map((fp) =>
+      fp.format === format ? { ...fp, price: value } : fp
+    );
+    onChange({ formatPrices: updated });
+  };
+
   return (
     <BookFormSection title="Pricing & Inventory" description="Pricing, stock levels, and visibility controls.">
       <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
         <InputWrapper label="Base Price (NPR)" error={errors.price} required>
-          <input type="text" inputMode="decimal" name="price" value={data.price} onChange={handleChange} placeholder="0.00" className={cn("w-full px-5 py-3 bg-white/[0.03] border rounded-2xl text-white placeholder:text-white/20 focus:outline-none focus:ring-2 focus:ring-white/10", errors.price ? "border-romance/50 focus:border-romance" : "border-white/5 focus:border-white/20")} />
+          <input type="text" inputMode="decimal" value={data.price} onChange={handlePriceChange} placeholder="0.00" className={cn("w-full px-5 py-3 bg-white/[0.03] border rounded-2xl text-white placeholder:text-white/20 focus:outline-none focus:ring-2 focus:ring-white/10", errors.price ? "border-romance/50 focus:border-romance" : "border-white/5 focus:border-white/20")} />
         </InputWrapper>
 
         <InputWrapper label="Discount Price (NPR)" error={errors.discountPrice}>
-          <input type="text" inputMode="decimal" name="discountPrice" value={data.discountPrice} onChange={handleChange} placeholder="0.00" className={cn("w-full px-5 py-3 bg-white/[0.03] border rounded-2xl text-white placeholder:text-white/20 focus:outline-none focus:ring-2 focus:ring-white/10", errors.discountPrice ? "border-romance/50 focus:border-romance" : "border-white/5 focus:border-white/20")} />
+          <input type="text" inputMode="decimal" value={data.discountPrice} onChange={handleDiscountPriceChange} placeholder="0.00" className={cn("w-full px-5 py-3 bg-white/[0.03] border rounded-2xl text-white placeholder:text-white/20 focus:outline-none focus:ring-2 focus:ring-white/10", errors.discountPrice ? "border-romance/50 focus:border-romance" : "border-white/5 focus:border-white/20")} />
         </InputWrapper>
 
         <InputWrapper label="Stock Quantity" error={errors.stock} required>
-          <input type="text" inputMode="numeric" name="stock" value={data.stock} onChange={handleChange} placeholder="0" className={cn("w-full px-5 py-3 bg-white/[0.03] border rounded-2xl text-white placeholder:text-white/20 focus:outline-none focus:ring-2 focus:ring-white/10", errors.stock ? "border-romance/50 focus:border-romance" : "border-white/5 focus:border-white/20")} />
+          <input type="text" inputMode="numeric" value={data.stock} onChange={handleStockChange} placeholder="0" className={cn("w-full px-5 py-3 bg-white/[0.03] border rounded-2xl text-white placeholder:text-white/20 focus:outline-none focus:ring-2 focus:ring-white/10", errors.stock ? "border-romance/50 focus:border-romance" : "border-white/5 focus:border-white/20")} />
         </InputWrapper>
+      </div>
+
+      {/* Format-Specific Pricing */}
+      <div className="pt-8 border-t border-white/5 mt-8">
+        <h4 className="text-sm font-semibold text-white/50 tracking-wide uppercase mb-1">Format-Specific Pricing</h4>
+        <p className="text-xs text-text-secondary opacity-60 mb-6">Set prices per book format. Leave blank to use the base price.</p>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          {(data.formatPrices || []).map((fp) => (
+            <div key={fp.format} className="space-y-1.5">
+              <label className="block text-xs font-bold text-white/30 uppercase tracking-wider">
+                {fp.format}
+              </label>
+              <div className="relative">
+                <span className="absolute inset-y-0 left-4 flex items-center text-white/20 text-sm font-medium">NRs</span>
+                <input
+                  type="text"
+                  inputMode="decimal"
+                  value={fp.price}
+                  onChange={(e) => handleFormatPriceChange(fp.format, e.target.value)}
+                  placeholder="Base price"
+                  className={cn(
+                    "w-full pl-14 pr-5 py-3 bg-white/[0.03] border rounded-2xl text-white placeholder:text-white/20 focus:outline-none focus:ring-2 focus:ring-white/10 transition-all",
+                    errors[`formatPrice_${fp.format}`] ? "border-romance/50" : "border-white/5 focus:border-white/20"
+                  )}
+                />
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
 
       {/* Toggle Switches */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 pt-6 border-t border-white/5 mt-8">
         <label className="flex items-center gap-4 cursor-pointer group">
           <div className="relative flex items-center">
-            <input type="checkbox" name="isFeatured" checked={data.isFeatured} onChange={handleChange} className="sr-only peer" />
+            <input type="checkbox" checked={data.isFeatured} onChange={handleFeaturedChange} className="sr-only peer" />
             <div className="w-12 h-7 bg-white/5 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-white/10 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white/40 after:border-transparent after:border after:rounded-full after:h-6 after:w-6 after:transition-all peer-checked:bg-fantasy"></div>
           </div>
           <div>
@@ -229,7 +286,7 @@ function PricingStep({
 
         <label className="flex items-center gap-4 cursor-pointer group">
           <div className="relative flex items-center">
-            <input type="checkbox" name="isTrending" checked={data.isTrending} onChange={handleChange} className="sr-only peer" />
+            <input type="checkbox" checked={data.isTrending} onChange={handleTrendingChange} className="sr-only peer" />
             <div className="w-12 h-7 bg-white/5 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-white/10 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white/40 after:border-transparent after:border after:rounded-full after:h-6 after:w-6 after:transition-all peer-checked:bg-drama"></div>
           </div>
           <div>
@@ -242,7 +299,7 @@ function PricingStep({
       <div className="pt-2 border-t border-white/5 mt-8 pt-8">
         <InputWrapper label="Publication Status">
           <div className="relative w-full sm:w-1/2">
-            <select name="status" value={data.status} onChange={handleChange} className="w-full px-5 py-3.5 bg-white/[0.03] border border-white/5 rounded-2xl text-white focus:outline-none focus:ring-2 focus:ring-white/10 appearance-none font-bold tracking-wide cursor-pointer">
+            <select value={data.status} onChange={handleStatusChange} className="w-full px-5 py-3.5 bg-white/[0.03] border border-white/5 rounded-2xl text-white focus:outline-none focus:ring-2 focus:ring-white/10 appearance-none font-bold tracking-wide cursor-pointer">
               <option value="DRAFT" className="bg-card-hover text-white">DRAFT (HIDDEN)</option>
               <option value="PUBLISHED" className="bg-card-hover text-white">PUBLISHED (LIVE)</option>
             </select>
@@ -329,7 +386,7 @@ function ReviewStep({ data }: { data: BookFormData }) {
           <div className="space-y-4 p-6 bg-white/[0.02] border border-white/5 rounded-2xl">
             <h4 className="text-xs font-bold text-white/30 uppercase tracking-[0.2em]">Pricing & Inventory</h4>
             <div className="space-y-3">
-              <SummaryField label="Price" value={data.price ? `NPR ${data.price}` : "—"} />
+              <SummaryField label="Base Price" value={data.price ? `NPR ${data.price}` : "—"} />
               <SummaryField label="Discount Price" value={data.discountPrice ? `NPR ${data.discountPrice}` : "—"} />
               <SummaryField label="Stock" value={data.stock ? String(data.stock) : "0"} />
               <SummaryField label="Status" value={data.status} highlight={data.status === "PUBLISHED"} />
@@ -337,6 +394,19 @@ function ReviewStep({ data }: { data: BookFormData }) {
                 {data.isFeatured && <span className="px-2.5 py-1 text-[10px] font-bold rounded-full bg-fantasy/10 text-fantasy border border-fantasy/20 uppercase tracking-widest">Featured</span>}
                 {data.isTrending && <span className="px-2.5 py-1 text-[10px] font-bold rounded-full bg-drama/10 text-drama border border-drama/20 uppercase tracking-widest">Trending</span>}
               </div>
+              {data.formatPrices && data.formatPrices.some(fp => fp.price) && (
+                <div className="border-t border-white/5 pt-3 mt-2">
+                  <span className="text-xs font-semibold text-white/30 uppercase tracking-wider block mb-2">Format Prices</span>
+                  {data.formatPrices.map(fp => (
+                    fp.price ? (
+                      <div key={fp.format} className="flex items-center justify-between gap-2 text-xs">
+                        <span className="text-white/40">{fp.format}</span>
+                        <span className="text-white/70 font-medium">NPR {fp.price}</span>
+                      </div>
+                    ) : null
+                  ))}
+                </div>
+              )}
             </div>
           </div>
 
