@@ -15,7 +15,8 @@ const app: Application = express();
 
 // ─── Core Middleware ─────────────────────────────────────────────
 app.use(helmet({ crossOriginResourcePolicy: { policy: "cross-origin" } }));
-app.use(cors({ origin: process.env.CORS_ORIGIN ?? "*" }));
+const allowedOrigin = process.env.CORS_ORIGIN || process.env.FRONTEND_BASE_URL || "http://localhost:3000";
+app.use(cors({ origin: allowedOrigin }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 

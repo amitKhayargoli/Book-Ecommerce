@@ -10,7 +10,8 @@ interface SignedAuthTokenPayload extends JwtPayload {
   userAgentHash?: string;
 }
 
-const DEFAULT_EXPIRY = "7d";
+
+const DEFAULT_EXPIRY = "15d";
 
 function getJwtSecret(): string {
   const secret = process.env.JWT_SECRET;

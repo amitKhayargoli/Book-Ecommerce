@@ -1,6 +1,11 @@
 import { api } from "../api-client";
 import { AxiosRequestConfig } from "axios";
 
+export interface FormatPricePayload {
+  format: string;
+  price: number;
+}
+
 export interface BookPayload {
   title: string;
   slug: string;
@@ -15,6 +20,7 @@ export interface BookPayload {
   coverImage?: string;
   mockupImage?: string;
   previewImages?: string[];
+  formatPrices?: FormatPricePayload[];
   featured?: boolean;
   trending?: boolean;
   authorName: string;

@@ -96,4 +96,11 @@ export const authEndpoints = {
 
   resendVerification: (payload: { email: string }, config?: AxiosRequestConfig) =>
     api.post<AuthResponse<{ message: string; verificationUrl?: string }>>("/api/auth/resend-verification", payload, config),
+
+  // Profile endpoints
+  updateProfile: (payload: { name?: string }, config?: AxiosRequestConfig) =>
+    api.put<AuthResponse<AuthUser>>("/api/auth/profile", payload, config),
+
+  exportData: (config?: AxiosRequestConfig) =>
+    api.get<AuthResponse<Record<string, unknown>>>("/api/auth/export", config),
 };

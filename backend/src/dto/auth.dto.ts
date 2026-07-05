@@ -135,3 +135,11 @@ export const ResendVerificationSchema = z.object({
 export type RegenerateBackupCodesDto = z.infer<typeof RegenerateBackupCodesSchema>;
 export type ResendVerificationDto = z.infer<typeof ResendVerificationSchema>;
 
+// ─── Profile Schemas ────────────────────────────────────────────────────
+
+export const UpdateProfileSchema = z.object({
+  name: z.string().min(2, "Name must be at least 2 characters").max(100).optional(),
+});
+
+export type UpdateProfileDto = z.infer<typeof UpdateProfileSchema>;
+
