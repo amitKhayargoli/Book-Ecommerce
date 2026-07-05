@@ -1,24 +1,66 @@
 "use client";
 
-import { useState } from "react";
-import { Star, X } from "lucide-react";
-import { addReviewAction } from "../actions/review-actions";
+import { useState, useRef } from "react";
+import { Star, X, ImagePlus, Loader2 } from "lucide-react";
+import { addReviewAction, updateReviewAction } from "../actions/review-actions";
+import Image from "next/image";
+
+interface InitialReviewData {
+  id: string;
+  rating: number;
+  comment: string | null;
+  images: string[];
+}
 
 interface ReviewModalProps {
   bookId: string;
   isOpen: boolean;
   onClose: () => void;
   onSuccess: () => void;
+  initialReview?: InitialReviewData | null;
 }
 
-export default function ReviewModal({ bookId, isOpen, onClose, onSuccess }: ReviewModalProps) {
-  const [rating, setRating] = useState(0);
+const MAX_IMAGES = 5;
+
+export default function ReviewModal({ bookId, isOpen, onClose, onSuccess, initialReview }: ReviewModalProps) {
+  const [rating, setRating] = useState(initialReview?.rating ?? 0);
   const [hoverRating, setHoverRating] = useState(0);
-  const [comment, setComment] = useState("");
+  const [comment, setComment] = useState(initialReview?.comment ?? "");
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [imageFiles, setImageFiles] = useState<File[]>([]);
+  const [imagePreviews, setImagePreviews] = useState<string[]>([]);
+  const [existingImages, setExistingImages] = useState<string[]>(initialReview?.images ?? []);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const isEditing = !!initialReview;
 
+  // Reset form when modal opens with new initialReview
   if (!isOpen) return null;
+
+  const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    const remaining = MAX_IMAGES - imageFiles.length - existingImages.length;
+    const selected = files.slice(0, remaining);
+
+    setImageFiles((prev) => [...prev, ...selected]);
+    setImagePreviews((prev) => [
+      ...prev,
+      ...selected.map((f) => URL.createObjectURL(f)),
+    ]);
+
+    // Reset input so the same file can be re-selected
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  };
+
+  const removeImage = (index: number, isExisting: boolean) => {
+    if (isExisting) {
+      setExistingImages((prev) => prev.filter((_, i) => i !== index));
+    } else {
+      URL.revokeObjectURL(imagePreviews[index]);
+      setImageFiles((prev) => prev.filter((_, i) => i !== index));
+      setImagePreviews((prev) => prev.filter((_, i) => i !== index));
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -26,18 +68,32 @@ export default function ReviewModal({ bookId, isOpen, onClose, onSuccess }: Revi
       setError("Please select a rating.");
       return;
     }
-    
+
     setIsLoading(true);
     setError(null);
-    
+
     try {
-      const response = await addReviewAction(bookId, { rating, comment });
+      const allImages = [...existingImages];
+      const payload = { rating, comment: comment || undefined, images: allImages.length > 0 ? allImages : undefined };
+
+      let response;
+      if (isEditing && initialReview) {
+        response = await updateReviewAction(bookId, initialReview.id, payload, imageFiles);
+      } else {
+        response = await addReviewAction(bookId, payload, imageFiles);
+      }
+
       if (response.success) {
+        // Cleanup object URLs
+        imagePreviews.forEach((p) => URL.revokeObjectURL(p));
         setRating(0);
         setComment("");
+        setImageFiles([]);
+        setImagePreviews([]);
+        setExistingImages([]);
         onSuccess();
       } else {
-        setError(response.message || "Failed to add review.");
+        setError(response.message || "Failed to save review.");
       }
     } catch {
       setError("An unexpected error occurred.");
@@ -49,8 +105,8 @@ export default function ReviewModal({ bookId, isOpen, onClose, onSuccess }: Revi
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
       <div className="bg-card w-full max-w-md rounded-2xl shadow-xl overflow-hidden flex flex-col animate-in zoom-in-95 duration-200">
-        <div className="flex justify-between items-center p-6 border-b border-border">
-          <h2 className="text-xl font-bold text-foreground">Write a Review</h2>
+        <div className="flex justify-between items-center p-6">
+          <h2 className="text-xl font-bold text-foreground">{isEditing ? "Edit Your Review" : "Write a Review"}</h2>
           <button
             onClick={onClose}
             className="text-muted-foreground hover:text-foreground transition-colors"
@@ -58,14 +114,14 @@ export default function ReviewModal({ bookId, isOpen, onClose, onSuccess }: Revi
             <X size={24} />
           </button>
         </div>
-        
+
         <form onSubmit={handleSubmit} className="p-6 flex flex-col gap-6">
           {error && (
             <div className="bg-red-500/10 text-red-500 p-3 rounded-lg text-sm">
               {error}
             </div>
           )}
-          
+
           <div className="flex flex-col gap-2">
             <label className="text-sm font-medium text-muted-foreground">Rating</label>
             <div className="flex items-center gap-1">
@@ -90,7 +146,7 @@ export default function ReviewModal({ bookId, isOpen, onClose, onSuccess }: Revi
               ))}
             </div>
           </div>
-          
+
           <div className="flex flex-col gap-2">
             <label className="text-sm font-medium text-muted-foreground" htmlFor="comment">
               Comment <span className="text-muted-foreground/50 text-xs font-normal">(Optional)</span>
@@ -103,7 +159,90 @@ export default function ReviewModal({ bookId, isOpen, onClose, onSuccess }: Revi
               placeholder="What did you think about this book?"
             />
           </div>
-          
+
+          {/* Image Upload Section */}
+          <div className="flex flex-col gap-2">
+            <label className="text-sm font-medium text-muted-foreground">
+              Photos <span className="text-muted-foreground/50 text-xs font-normal">(Optional, max {MAX_IMAGES})</span>
+            </label>
+
+            {/* All images: existing + new uploads */}
+            {(existingImages.length > 0 || imagePreviews.length > 0) && (
+              <div className="flex flex-wrap gap-2 mb-2">
+                {/* Existing images (from previous review) */}
+                {existingImages.map((url, idx) => (
+                  <div key={`existing-${idx}`} className="relative w-16 h-16 rounded-lg overflow-hidden group">
+                    <Image
+                      src={url}
+                      alt={`Review photo ${idx + 1}`}
+                      fill
+                      className="object-cover"
+                      unoptimized
+                    />
+                    <button
+                      type="button"
+                      onClick={() => removeImage(idx, true)}
+                      className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center"
+                    >
+                      <X className="w-4 h-4 text-white" />
+                    </button>
+                  </div>
+                ))}
+
+                {/* New image previews */}
+                {imagePreviews.map((preview, idx) => (
+                  <div key={`new-${idx}`} className="relative w-16 h-16 rounded-lg overflow-hidden group">
+                    <Image
+                      src={preview}
+                      alt={`New photo ${idx + 1}`}
+                      fill
+                      className="object-cover"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => removeImage(idx, false)}
+                      className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center"
+                    >
+                      <X className="w-4 h-4 text-white" />
+                    </button>
+                  </div>
+                ))}
+
+                {/* Add more button */}
+                {(existingImages.length + imagePreviews.length) < MAX_IMAGES && (
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    className="w-16 h-16 rounded-lg border-2 border-dashed border-border flex items-center justify-center hover:border-romance transition-colors"
+                  >
+                    <ImagePlus className="w-5 h-5 text-muted-foreground" />
+                  </button>
+                )}
+              </div>
+            )}
+
+            {/* Add images button (shown when no images selected yet) */}
+            {existingImages.length === 0 && imagePreviews.length === 0 && (
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
+              >
+                <ImagePlus className="w-4 h-4" />
+                Add photos
+              </button>
+            )}
+
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/jpeg,image/png,image/webp,image/gif,image/avif"
+              multiple
+              onChange={handleImageSelect}
+              className="hidden"
+            />
+          </div>
+
           <div className="flex justify-end gap-3 mt-2">
             <button
               type="button"
@@ -118,9 +257,9 @@ export default function ReviewModal({ bookId, isOpen, onClose, onSuccess }: Revi
               className="bg-romance text-black px-6 py-2.5 rounded-full font-bold hover:bg-romance/90 transition-colors disabled:opacity-50 flex items-center justify-center min-w-[120px]"
             >
               {isLoading ? (
-                <div className="w-5 h-5 border-2 border-black/30 border-t-black rounded-full animate-spin" />
+                <Loader2 className="w-5 h-5 animate-spin" />
               ) : (
-                "Submit Review"
+                isEditing ? "Update Review" : "Submit Review"
               )}
             </button>
           </div>
