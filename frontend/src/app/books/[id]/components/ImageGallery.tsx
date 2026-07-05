@@ -9,7 +9,7 @@ interface ImageGalleryProps {
 }
 
 function isLocalUpload(url: string): boolean {
-  return url.startsWith("http://localhost:4000/");
+  return url.startsWith("http://localhost:4000/") || url.startsWith("http://backend:3001/");
 }
 
 export default function ImageGallery({ images, title }: ImageGalleryProps) {
