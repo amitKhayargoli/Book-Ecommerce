@@ -25,8 +25,8 @@ export class CartController {
 
   addItem = async (req: Request, res: Response): Promise<void> => {
     const user = this.getAuthenticatedUser(req);
-    const { bookId } = req.body as AddCartItemDto;
-    const data = await this.service.addItem(user.id, bookId);
+    const { bookId, format } = req.body as AddCartItemDto;
+    const data = await this.service.addItem(user.id, bookId, format);
 
     sendSuccess(res, data, data.added ? "Book added to cart" : "Book already in cart");
   };

@@ -3,6 +3,7 @@ import { api } from "../api-client";
 
 export interface AddCartItemPayload {
   bookId: string;
+  format?: string;
 }
 
 export interface CartBook {
@@ -20,6 +21,7 @@ export interface CartBook {
 export interface CartItem {
   id: string;
   bookId: string;
+  format: string | null;
   quantity: number;
   createdAt: string;
   book: CartBook;
@@ -42,6 +44,7 @@ export interface CartCountData {
 export interface CartAddItemData {
   cartId: string;
   bookId: string;
+  format: string | null;
   added: boolean;
 }
 

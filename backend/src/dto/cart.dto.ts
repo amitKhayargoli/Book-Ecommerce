@@ -2,6 +2,7 @@ import { z } from "zod";
 
 export const AddCartItemSchema = z.object({
   bookId: z.string().min(1, "Book ID is required"),
+  format: z.string().optional(),
 });
 
 export const CartBookParamSchema = z.object({
