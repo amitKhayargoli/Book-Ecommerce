@@ -82,6 +82,7 @@ export class BookService implements IBookService {
       publisherId,
       genreIds,
       previewImages: bookData.previewImages ?? [],
+      formatPrices: bookData.formatPrices,
     };
 
     return toBookResponse(await this.repo.create(createPayload));
@@ -114,6 +115,7 @@ export class BookService implements IBookService {
       authorName: _authorName,
       publisherName: _publisherName,
       genreNames: _genreNames,
+      formatPrices: _formatPrices,
       ...cleanDto
     } = dto;
 
@@ -122,6 +124,7 @@ export class BookService implements IBookService {
       ...(authorId !== undefined && { authorId }),
       ...(publisherId !== undefined && { publisherId }),
       ...(genreIds !== undefined && { genreIds }),
+      ...(dto.formatPrices !== undefined && { formatPrices: dto.formatPrices }),
     };
 
     return toBookResponse(await this.repo.update(id, updatePayload));

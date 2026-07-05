@@ -2,7 +2,7 @@ import { Prisma } from "@prisma/client";
 import { Request } from "express";
 import { ParamsDictionary } from "express-serve-static-core";
 import { ParsedQs } from "qs";
-import { PaginationMeta } from "../utils/response";
+import { PaginationMeta, normalizeImageUrl } from "../utils/response";
 import { CreateBookDto, UpdateBookDto, BookQueryDto } from "../dto/book.dto";
 
 // ═══════════════════════════════════════════════════════════════════
@@ -59,6 +59,7 @@ export type BookRecord = Prisma.BookGetPayload<{
         };
       };
     };
+    // formatPrices intentionally omitted from select — see repository
     _count: {
       select: { reviews: true };
     };
@@ -77,6 +78,12 @@ export interface BookGenreResponse {
   name: string;
   slug: string;
   color: string;
+}
+
+/** Single book as returned in API responses */
+export interface BookFormatPriceResponse {
+  format: string;
+  price: number;
 }
 
 /** Single book as returned in API responses */
@@ -99,6 +106,7 @@ export interface BookResponse {
   reviewCount: number; // flattened from _count.reviews
   author: BookAuthor;
   genres: BookGenreResponse[]; // flattened from bookGenres[].genre
+  formatPrices: BookFormatPriceResponse[];
   createdAt: Date;
   updatedAt: Date;
 }
@@ -126,6 +134,7 @@ export interface BookSummary {
   author: Pick<BookAuthor, "id" | "name" | "slug">;
   genres: Pick<BookGenreResponse, "id" | "name" | "color">[];
   reviewCount: number;
+  formatPrices: BookFormatPriceResponse[];
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -263,9 +272,9 @@ export function toBookResponse(record: BookRecord): BookResponse {
     price: record.price,
     discountPrice: record.discountPrice ?? null,
     stock: record.stock,
-    coverImage: record.coverImage,
-    mockupImage: record.mockupImage,
-    previewImages: record.previewImages,
+    coverImage: normalizeImageUrl(record.coverImage) ?? record.coverImage,
+    mockupImage: normalizeImageUrl(record.mockupImage),
+    previewImages: record.previewImages.map(img => normalizeImageUrl(img) ?? img),
     language: record.language ?? null,
     publishedAt: record.publishedAt ?? null,
     featured: record.featured,
@@ -274,6 +283,7 @@ export function toBookResponse(record: BookRecord): BookResponse {
     reviewCount: record._count.reviews,
     author: record.author,
     genres: record.bookGenres.map((bg) => bg.genre),
+    formatPrices: [],
     createdAt: record.createdAt,
     updatedAt: record.updatedAt,
   };
@@ -292,9 +302,9 @@ export function toBookSummary(record: BookRecord): BookSummary {
     discountPrice: record.discountPrice ?? null,
     stock: record.stock,
     inStock: record.stock > 0,
-    coverImage: record.coverImage,
-    mockupImage: record.mockupImage,
-    previewImages: record.previewImages,
+    coverImage: normalizeImageUrl(record.coverImage) ?? record.coverImage,
+    mockupImage: normalizeImageUrl(record.mockupImage),
+    previewImages: record.previewImages.map(img => normalizeImageUrl(img) ?? img),
     featured: record.featured,
     trending: record.trending,
     author: {
@@ -308,5 +318,6 @@ export function toBookSummary(record: BookRecord): BookSummary {
       color: bg.genre.color,
     })),
     reviewCount: record._count.reviews,
+    formatPrices: [],
   };
 }

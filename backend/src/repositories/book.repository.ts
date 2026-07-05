@@ -41,6 +41,8 @@ const bookSelect = {
       },
     },
   },
+  // formatPrices intentionally omitted — the BookFormatPrice MongoDB
+  // collection may not exist yet. Transformers handle this gracefully.
   _count: {
     select: { reviews: true },
   },
@@ -237,7 +239,7 @@ export class BookRepository {
 
   // ── Create ────────────────────────────────────────────────────
   async create(dto: CreateBookDbDto): Promise<BookRecord> {
-    const { genreIds, ...bookData } = dto;
+    const { genreIds, formatPrices, ...bookData } = dto;
 
     return prisma.book.create({
       data: {
@@ -247,6 +249,14 @@ export class BookRepository {
             create: genreIds.map((genreId) => ({ genreId })),
           },
         }),
+        ...(formatPrices?.length && {
+          formatPrices: {
+            create: formatPrices.map((fp) => ({
+              format: fp.format,
+              price: fp.price,
+            })),
+          },
+        }),
       },
       select: bookSelect,
     });
@@ -254,7 +264,7 @@ export class BookRepository {
 
   // ── Update ────────────────────────────────────────────────────
   async update(id: string, dto: UpdateBookDto): Promise<BookRecord> {
-    const { genreIds, ...bookData } = dto;
+    const { genreIds, formatPrices, ...bookData } = dto;
 
     return prisma.book.update({
       where: { id },
@@ -265,6 +275,16 @@ export class BookRepository {
           bookGenres: {
             deleteMany: {},
             create: genreIds.map((genreId) => ({ genreId })),
+          },
+        }),
+        // Replace all format prices if formatPrices provided
+        ...(formatPrices && {
+          formatPrices: {
+            deleteMany: {},
+            create: formatPrices.map((fp) => ({
+              format: fp.format,
+              price: fp.price,
+            })),
           },
         }),
       },
