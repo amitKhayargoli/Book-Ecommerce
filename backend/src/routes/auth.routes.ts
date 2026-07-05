@@ -3,7 +3,7 @@ import rateLimit from "express-rate-limit";
 import { AuthController } from "../controllers/auth.controller";
 import { validate } from "../middlewares/validate.middleware";
 import { asyncHandler } from "../middlewares/asyncHandler";
-import { ForgotPasswordSchema, GoogleOAuthSchema, LoginSchema, MfaDisableSchema, MfaEnableSchema, MfaSetupSchema, MfaVerifyLoginSchema, RegenerateBackupCodesSchema, RegisterSchema, ResendVerificationSchema, ResetPasswordSchema } from "../dto/auth.dto";
+import { ForgotPasswordSchema, GoogleOAuthSchema, LoginSchema, MfaDisableSchema, MfaEnableSchema, MfaSetupSchema, MfaVerifyLoginSchema, RegenerateBackupCodesSchema, RegisterSchema, ResendVerificationSchema, ResetPasswordSchema, UpdateProfileSchema } from "../dto/auth.dto";
 import { authMiddleware } from "../middlewares/auth.middleware";
 import { adminMiddleware } from "../middlewares/admin.middleware";
 import { captchaMiddleware } from "../middlewares/captcha.middleware";
@@ -103,6 +103,11 @@ const resetPasswordLimiter = rateLimit({
 
 router.post("/forgot-password", forgotPasswordLimiter, validate(ForgotPasswordSchema), asyncHandler(controller.forgotPassword));
 router.post("/reset-password", resetPasswordLimiter, validate(ResetPasswordSchema), asyncHandler(controller.resetPassword));
+
+// ─── Admin Routes ──────────────────────────────────────────────────
+router.put("/profile", authMiddleware, validate(UpdateProfileSchema), asyncHandler(controller.updateProfile));
+
+router.get("/export", authMiddleware, asyncHandler(controller.exportData));
 
 // ─── Admin Routes ──────────────────────────────────────────────────
 router.get("/audit-logs", authMiddleware, adminMiddleware, asyncHandler(controller.getAuditLogs));

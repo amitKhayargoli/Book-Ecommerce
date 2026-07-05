@@ -13,6 +13,7 @@ import {
   MfaVerifyLoginDto,
   RegisterDto,
   ResetPasswordDto,
+  UpdateProfileDto,
 } from "../dto/auth.dto";
 import {
   AuthTokensResponse,
@@ -256,6 +257,24 @@ export class AuthService {
 
   async loginWithGoogle(dto: GoogleOAuthDto, auditCtx?: AuditContext, userAgentHash?: string): Promise<AuthTokensResponse> {
     const normalizedEmail = dto.email.toLowerCase();
+    // ─── Verify the Google ID token server-side ─────────────────────
+    try {
+      const ticket = await googleClient.verifyIdToken({
+        idToken: dto.idToken,
+        audience: process.env.AUTH_GOOGLE_ID,
+      });
+      const payload = ticket.getPayload();
+      const verifiedEmail = payload?.email?.toLowerCase();
+
+      if (!verifiedEmail || verifiedEmail !== normalizedEmail) {
+        this.audit.log("login_failed", this.ctx({ ...auditCtx, metadata: { reason: "oauth_token_email_mismatch" } }));
+        throw new UnauthorizedError("Invalid Google ID token");
+      }
+    } catch (err) {
+      if (err instanceof UnauthorizedError) throw err;
+      this.audit.log("login_failed", this.ctx({ ...auditCtx, metadata: { reason: "oauth_token_verification_failed" } }));
+      throw new UnauthorizedError("Failed to verify Google ID token. Please try signing in again.");
+    }
 
     const existingUser = await prisma.user.findUnique({
       where: { email: normalizedEmail },
@@ -533,6 +552,106 @@ export class AuthService {
 
     return {
       message: "Your password has been reset successfully. You can now sign in with your new password.",
+    };
+  }
+
+  async updateProfile(userId: string, dto: UpdateProfileDto, auditCtx?: AuditContext): Promise<AuthUserPayload> {
+    const data: Record<string, unknown> = {};
+    if (dto.name !== undefined) data.name = dto.name;
+
+    if (Object.keys(data).length === 0) {
+      throw new BadRequestError("No fields to update");
+    }
+
+    const updated = await prisma.user.update({
+      where: { id: userId },
+      data,
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        role: true,
+        tokenVersion: true,
+      },
+    });
+
+    this.audit.log("profile_updated", this.ctx({ userId, email: updated.email, ...auditCtx, metadata: { fields: Object.keys(data) } }));
+
+    return updated;
+  }
+
+  async exportData(userId: string): Promise<Record<string, unknown>> {
+    const [user, orders, reviews, auditLogs] = await Promise.all([
+      prisma.user.findUnique({
+        where: { id: userId },
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          role: true,
+          createdAt: true,
+          updatedAt: true,
+        },
+      }),
+      prisma.order.findMany({
+        where: { userId },
+        include: {
+          items: {
+            include: { book: { select: { title: true, slug: true } } },
+          },
+          address: true,
+        },
+        orderBy: { createdAt: "desc" },
+      }),
+      prisma.review.findMany({
+        where: { userId },
+        include: { book: { select: { title: true, slug: true } } },
+        orderBy: { createdAt: "desc" },
+      }),
+      prisma.auditLog.findMany({
+        where: { userId },
+        orderBy: { createdAt: "desc" },
+        take: 200,
+      }),
+    ]);
+
+    return {
+      exportedAt: new Date().toISOString(),
+      user,
+      orders: orders.map((o) => ({
+        id: o.id,
+        status: o.status,
+        totalAmount: o.totalAmount,
+        paymentStatus: o.paymentStatus,
+        paymentProvider: o.paymentProvider,
+        createdAt: o.createdAt,
+        items: o.items.map((i) => ({
+          bookTitle: i.book.title,
+          quantity: i.quantity,
+          price: i.price,
+        })),
+        address: o.address
+          ? {
+              fullName: o.address.fullName,
+              street: o.address.street,
+              city: o.address.city,
+              state: o.address.state,
+              postalCode: o.address.postalCode,
+              country: o.address.country,
+            }
+          : null,
+      })),
+      reviews: reviews.map((r) => ({
+        bookTitle: r.book.title,
+        rating: r.rating,
+        comment: r.comment,
+        createdAt: r.createdAt,
+      })),
+      activityLog: auditLogs.map((l) => ({
+        event: l.event,
+        ip: l.ip,
+        createdAt: l.createdAt,
+      })),
     };
   }
 

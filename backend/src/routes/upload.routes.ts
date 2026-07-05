@@ -77,7 +77,6 @@ const controller = new UploadController();
 router.post(
   "/",
   authMiddleware,
-  adminMiddleware,
   (req, res, next) => {
     upload.single("image")(req, res, (err) => {
       if (err) {

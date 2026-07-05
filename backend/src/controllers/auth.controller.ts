@@ -10,6 +10,7 @@ import {
   RegisterDto,
   ResetPasswordDto,
   ResendVerificationDto,
+  UpdateProfileDto,
 } from "../dto/auth.dto";
 import { sendSuccess, sendPaginated, buildPaginationMeta } from "../utils/response";
 import { AuthUserPayload } from "../types/auth.types";
@@ -86,6 +87,26 @@ export class AuthController {
       return;
     }
     sendSuccess(res, this.service.me(user), "Profile fetched successfully");
+  };
+
+  updateProfile = async (req: Request, res: Response): Promise<void> => {
+    const user = (req as AuthenticatedRequest).user;
+    if (!user) {
+      res.status(401).json({ success: false, message: "Authentication required" });
+      return;
+    }
+    const result = await this.service.updateProfile(user.id, req.body, auditCtx(req));
+    sendSuccess(res, result, "Profile updated successfully");
+  };
+
+  exportData = async (req: Request, res: Response): Promise<void> => {
+    const user = (req as AuthenticatedRequest).user;
+    if (!user) {
+      res.status(401).json({ success: false, message: "Authentication required" });
+      return;
+    }
+    const result = await this.service.exportData(user.id);
+    sendSuccess(res, result, "Data exported successfully");
   };
 
   // ─── MFA Endpoints ──────────────────────────────────────────────────

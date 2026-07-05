@@ -8,7 +8,7 @@ import {
   UpdateBookSchema,
   BookQuerySchema,
 } from "../dto/book.dto";
-import { CreateReviewSchema, ReviewQuerySchema } from "../dto/review.dto";
+import { CreateReviewSchema, UpdateReviewSchema, ReviewQuerySchema } from "../dto/review.dto";
 import { authMiddleware } from "../middlewares/auth.middleware";
 import { adminMiddleware } from "../middlewares/admin.middleware";
 import { perUserRateLimit } from "../middlewares/rateLimiter.middleware";
@@ -85,6 +85,20 @@ router.post(
   reviewLimiter,
   validate(CreateReviewSchema),
   asyncHandler(reviewController.createReview)
+);
+
+router.get(
+  "/:id/reviews/mine",
+  authMiddleware,
+  asyncHandler(reviewController.getMyReview)
+);
+
+router.put(
+  "/:id/reviews/:reviewId",
+  authMiddleware,
+  reviewLimiter,
+  validate(UpdateReviewSchema),
+  asyncHandler(reviewController.updateReview)
 );
 
 router.patch(
