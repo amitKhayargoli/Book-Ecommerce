@@ -8,9 +8,10 @@ import {
 } from "@/app/admin/books/actions/book-actions";
 import { getReviewsAction } from "./actions/review-actions";
 import ImageGallery from "./components/ImageGallery";
-import WishlistButton from "./components/WishlistButton";
 import AddReviewButton from "./components/AddReviewButton";
-import AddToCartButton from "./components/AddToCartButton";
+import ReviewSortDropdown from "./components/ReviewSortDropdown";
+import ReviewStarFilter from "./components/ReviewStarFilter";
+import BookFormatSection from "./components/BookFormatSection";
 
 interface ApiBookDetail {
   id: string;
@@ -25,6 +26,9 @@ interface ApiBookDetail {
   discountPrice?: number | null;
   author?: { name?: string };
   genres?: Array<{ name?: string }>;
+  language?: string | null;
+  publishedAt?: string | null;
+  formatPrices?: Array<{ format: string; price: number }>;
 }
 
 interface ApiBookListItem {
@@ -40,6 +44,7 @@ interface ApiReviewItem {
   id: string;
   rating: number;
   comment: string | null;
+  images: string[];
   createdAt: string;
   user: {
     id: string;
@@ -91,6 +96,7 @@ function isApiReviewList(value: unknown): value is ApiReviewItem[] {
       id?: unknown;
       rating?: unknown;
       comment?: unknown;
+      images?: unknown;
       createdAt?: unknown;
       user?: { id?: unknown; name?: unknown };
       bookId?: unknown;
@@ -100,6 +106,8 @@ function isApiReviewList(value: unknown): value is ApiReviewItem[] {
       typeof candidate.id === "string" &&
       typeof candidate.rating === "number" &&
       (typeof candidate.comment === "string" || candidate.comment === null) &&
+      Array.isArray(candidate.images) &&
+      candidate.images.every((img: unknown) => typeof img === "string") &&
       typeof candidate.createdAt === "string" &&
       typeof candidate.user?.id === "string" &&
       typeof candidate.user?.name === "string" &&
@@ -120,7 +128,7 @@ function formatReviewDate(value: string): string {
 }
 
 function isLocalUpload(url: string): boolean {
-  return url.startsWith("http://localhost:4000/");
+  return url.startsWith("http://localhost:4000/") || url.startsWith("http://backend:3001/");
 }
 
 function formatPrice(value: number): string {
@@ -133,10 +141,13 @@ function formatPrice(value: number): string {
 
 export default async function BookProductPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ sortBy?: string; sortOrder?: string; rating?: string }>;
 }) {
   const { id } = await params;
+  const { sortBy, sortOrder, rating: ratingFilter } = await searchParams;
   const result = await hanldeGetBookById(id);
 
   if (!result.success || !isApiBookDetail(result.data)) {
@@ -147,11 +158,13 @@ export default async function BookProductPage({
 
   const booksResult = await handleGetBooks();
   const allBooks = isApiBookList(booksResult.data) ? booksResult.data : [];
-  const reviewsResult = await getReviewsAction(bookData.id);
-  const reviews =
+  const reviewsResult = await getReviewsAction(bookData.id, 1, 100, sortBy, sortOrder);
+  const allReviews =
     reviewsResult.success && isApiReviewList(reviewsResult.data)
       ? reviewsResult.data
       : [];
+
+  // Compute stats from the FULL unfiltered review list
   const totalReviewsFromMeta =
     typeof (reviewsResult.meta as { total?: unknown } | undefined)?.total ===
     "number"
@@ -159,9 +172,37 @@ export default async function BookProductPage({
       : 0;
   const totalReviews = Math.max(
     totalReviewsFromMeta,
-    reviews.length,
+    allReviews.length,
     bookData.reviewCount,
   );
+
+  const fullAverageRating =
+    allReviews.length > 0
+      ? Number(
+          (
+            allReviews.reduce((sum, review) => sum + review.rating, 0) /
+            allReviews.length
+          ).toFixed(1),
+        )
+      : 0;
+  const roundedAverageRating = Math.round(fullAverageRating);
+  const ratingBreakdown = [5, 4, 3, 2, 1].map((star) => {
+    const count = allReviews.filter((review) => review.rating === star).length;
+    return {
+      star,
+      count,
+      pct: totalReviews > 0 ? Math.round((count / totalReviews) * 100) : 0,
+    };
+  });
+
+  // Apply rating filter if set via search params (for the displayed list only)
+  let reviews = allReviews;
+  if (ratingFilter) {
+    const starFilter = Number(ratingFilter);
+    if (starFilter >= 1 && starFilter <= 5) {
+      reviews = allReviews.filter((r) => r.rating === starFilter);
+    }
+  }
 
   const relatedBooks = allBooks
     .filter((candidate) => candidate.id !== bookData.id)
@@ -181,31 +222,14 @@ export default async function BookProductPage({
         ])
         .slice(0, 4);
 
-  const averageRating =
-    reviews.length > 0
-      ? Number(
-          (
-            reviews.reduce((sum, review) => sum + review.rating, 0) /
-            reviews.length
-          ).toFixed(1),
-        )
-      : 0;
-  const roundedAverageRating = Math.round(averageRating);
-  const ratingBreakdown = [5, 4, 3, 2, 1].map((star) => {
-    const count = reviews.filter((review) => review.rating === star).length;
-    return {
-      star,
-      count,
-      pct: totalReviews > 0 ? Math.round((count / totalReviews) * 100) : 0,
-    };
-  });
+  const formatPrices = bookData.formatPrices ?? [];
 
   const book = {
     id: bookData.id,
     title: bookData.title,
     author: bookData.author?.name ?? "Unknown author",
     price: formatPrice(bookData.price),
-    rating: averageRating,
+    rating: fullAverageRating,
     roundedRating: roundedAverageRating,
     reviewCount: totalReviews,
     description: bookData.description,
@@ -214,6 +238,9 @@ export default async function BookProductPage({
     genres: (bookData.genres ?? [])
       .map((genre) => genre.name)
       .filter((name): name is string => Boolean(name)),
+    language: bookData.language ?? undefined,
+    publishedAt: bookData.publishedAt ?? undefined,
+    formatPrices,
   };
 
   return (
@@ -262,29 +289,6 @@ export default async function BookProductPage({
               {book.title}
             </h1>
 
-            <div className="text-3xl font-semibold mb-6 flex items-center gap-6">
-              {book.price}
-
-              <div className="flex items-center gap-2 text-sm font-normal text-text-secondary border-l border-white/10 pl-6">
-                <div className="flex text-romance">
-                  {[...Array(5)].map((_, i) => (
-                    <Star
-                      key={i}
-                      className={`w-4 h-4 ${
-                        i < book.roundedRating
-                          ? "fill-romance text-romance"
-                          : "fill-transparent text-romance/40"
-                      }`}
-                    />
-                  ))}
-                </div>
-                <span>{book.rating}</span>
-                <span className="text-text-secondary/60">
-                  ({book.reviewCount} reviews)
-                </span>
-              </div>
-            </div>
-
             <div className="mb-8 border-t border-white/10 pt-8">
               <h3 className="font-semibold text-lg mb-3">Description</h3>
               <p className="text-text-secondary leading-relaxed text-base">
@@ -292,37 +296,20 @@ export default async function BookProductPage({
               </p>
             </div>
 
-            {/* Selectors */}
-            <div className="mb-8">
-              <div className="flex justify-between items-center mb-3">
-                <span className="font-medium text-sm text-text-secondary uppercase tracking-widest">
-                  Format
-                </span>
-                <button className="text-xs text-text-secondary hover:text-white underline decoration-white/30 underline-offset-4">
-                  Size Guide
-                </button>
-              </div>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                {book.formats.map((format, idx) => (
-                  <button
-                    key={format}
-                    className={`py-3 px-4 rounded-md border text-sm font-medium transition-all ${
-                      idx === 0
-                        ? "border-romance bg-romance/10 text-white"
-                        : "border-white/10 bg-card hover:bg-white/5 hover:border-white/30 text-text-secondary"
-                    }`}
-                  >
-                    {format}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Actions */}
-            <div className="flex gap-4 items-center">
-              <AddToCartButton bookId={book.id} />
-              <WishlistButton bookId={book.id} />
-            </div>
+            {/* Selectors + Actions */}
+            <BookFormatSection
+              formats={book.formats}
+              formatPrices={book.formatPrices}
+              basePrice={bookData.price}
+              rating={book.rating}
+              roundedRating={book.roundedRating}
+              reviewCount={book.reviewCount}
+              language={book.language}
+              publishedAt={book.publishedAt}
+              genres={book.genres}
+              author={book.author}
+              bookId={book.id}
+            />
 
             {/* Extra Snippet */}
             <div className="mt-8 pt-8 border-t border-white/10 text-sm text-text-secondary">
@@ -423,44 +410,13 @@ export default async function BookProductPage({
                 </div>
               </div>
 
-              {/* Review Bars */}
-              <div className="flex flex-col gap-3">
-                {ratingBreakdown.map((row) => (
-                  <div
-                    key={row.star}
-                    className="flex items-center gap-4 text-sm font-medium text-text-secondary"
-                  >
-                    <div className="flex items-center gap-1 w-8">
-                      <span>{row.star}</span>
-                      <Star className="w-3 h-3 fill-current" />
-                    </div>
-                    <div className="flex-1 h-2 bg-white/10 rounded-full overflow-hidden">
-                      <div
-                        className="h-full bg-white relative rounded-full"
-                        style={{ width: `${row.pct}%` }}
-                      ></div>
-                    </div>
-                    <div className="w-10 text-right">{row.count}</div>
-                  </div>
-                ))}
-              </div>
+              {/* Review Bars (clickable filter) */}
+              <ReviewStarFilter breakdown={ratingBreakdown} />
 
-              {/* Filters (Simplified) */}
+              {/* Filters (Collapsed into star filter above) */}
               <div className="border-t border-white/10 pt-8 mt-4">
                 <h3 className="font-semibold mb-6">Review Filter</h3>
                 <div className="flex flex-col gap-4">
-                  <div className="flex items-center justify-between cursor-pointer group">
-                    <span className="text-text-secondary group-hover:text-white transition-colors">
-                      Rating
-                    </span>
-                    <ChevronRight className="w-4 h-4 text-text-secondary group-hover:text-white transition-colors" />
-                  </div>
-                  <div className="flex items-center justify-between cursor-pointer group">
-                    <span className="text-text-secondary group-hover:text-white transition-colors">
-                      Book Format
-                    </span>
-                    <ChevronRight className="w-4 h-4 text-text-secondary group-hover:text-white transition-colors" />
-                  </div>
                   <div className="flex items-center justify-between cursor-pointer group">
                     <span className="text-text-secondary group-hover:text-white transition-colors">
                       Has Photos
@@ -481,12 +437,7 @@ export default async function BookProductPage({
                 </div>
                 <div className="flex gap-4">
                   <span className="text-sm text-text-secondary">Sort by:</span>
-                  <select className="bg-card-hover text-sm font-medium outline-none cursor-pointer px-3 py-2 rounded-lg border border-white/10">
-                    <option className="bg-card-hover text-white">Most Relevant</option>
-                    <option className="bg-card-hover text-white">Newest First</option>
-                    <option className="bg-card-hover text-white">Highest Rating</option>
-                    <option className="bg-card-hover text-white">Lowest Rating</option>
-                  </select>
+                  <ReviewSortDropdown />
                 </div>
               </div>
 
@@ -521,11 +472,31 @@ export default async function BookProductPage({
                       </span>
                     </div>
 
-                    <p className="text-text-secondary leading-relaxed mb-6">
+                    <p className="text-text-secondary leading-relaxed mb-4">
                       {review.comment && review.comment.trim().length > 0
                         ? review.comment
                         : "No written comment provided."}
                     </p>
+
+                    {/* Review Images */}
+                    {review.images && review.images.length > 0 && (
+                      <div className="flex flex-wrap gap-2 mb-4">
+                        {review.images.map((imgUrl, imgIdx) => (
+                          <div
+                            key={imgIdx}
+                            className="relative w-20 h-20 rounded-lg overflow-hidden border border-white/10"
+                          >
+                            <Image
+                              src={imgUrl}
+                              alt={`Review photo ${imgIdx + 1}`}
+                              fill
+                              className="object-cover"
+                              unoptimized={isLocalUpload(imgUrl)}
+                            />
+                          </div>
+                        ))}
+                      </div>
+                    )}
 
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-3">

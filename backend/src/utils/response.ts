@@ -1,5 +1,16 @@
 import { Response } from "express";
 
+/**
+ * Normalize image URLs that may contain Docker-internal hostnames
+ * so the browser can actually load them.
+ *
+ * Currently handles: http://backend:3001/ → http://localhost:4000/
+ */
+export function normalizeImageUrl(url: string | null): string | null {
+  if (!url) return url;
+  return url.replace("http://backend:3001/", "http://localhost:4000/");
+}
+
 export interface PaginationMeta {
   page: number;
   limit: number;
