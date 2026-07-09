@@ -26,10 +26,13 @@ export class CartRepository {
   async findItemByCartAndBook(
     cartId: string,
     bookId: string,
-  ): Promise<{ id: string } | null> {
+  ): Promise<{ id: string; format: string | null } | null> {
     return prisma.cartItem.findFirst({
-      where: { cartId, bookId },
-      select: { id: true },
+      where: {
+        cartId,
+        bookId,
+      },
+      select: { id: true, format: true },
     });
   }
 
@@ -40,11 +43,12 @@ export class CartRepository {
     });
   }
 
-  async removeItem(cartId: string, bookId: string): Promise<number> {
-    const result = await prisma.cartItem.deleteMany({
-      where: { cartId, bookId },
-    });
-
+  async removeItem(cartId: string, bookId: string, format?: string | null): Promise<number> {
+    const where: { cartId: string; bookId: string; format?: string | null } = { cartId, bookId };
+    if (format !== undefined) {
+      where.format = format ?? null;
+    }
+    const result = await prisma.cartItem.deleteMany({ where });
     return result.count;
   }
 
@@ -67,6 +71,9 @@ export class CartRepository {
             title: true,
             price: true,
             coverImage: true,
+            formatPrices: {
+              select: { format: true, price: true },
+            },
             author: {
               select: {
                 id: true,

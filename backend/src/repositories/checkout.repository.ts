@@ -4,8 +4,10 @@ import prisma from "../lib/prisma";
 export interface CheckoutCartItemRecord {
   bookId: string;
   quantity: number;
+  format: string | null;
   book: {
     price: number;
+    formatPrices: Array<{ format: string; price: number }>;
   };
 }
 
@@ -19,6 +21,7 @@ interface CreateOrderInput {
     quantity: number;
     price: number;
   }>;
+  addressId?: string;
 }
 
 export class CheckoutRepository {
@@ -32,9 +35,13 @@ export class CheckoutRepository {
       select: {
         bookId: true,
         quantity: true,
+        format: true,
         book: {
           select: {
             price: true,
+            formatPrices: {
+              select: { format: true, price: true },
+            },
           },
         },
       },
@@ -53,6 +60,7 @@ export class CheckoutRepository {
         paymentTransactionUuid: input.paymentTransactionUuid,
         paymentStatus: "PENDING",
         status: "PENDING",
+        addressId: input.addressId ?? null,
         items: {
           create: input.items,
         },

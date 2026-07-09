@@ -25,6 +25,7 @@ interface CartMutationPayload {
 interface CartStatusPayload {
   bookId: string;
   inCart: boolean;
+  currentFormat?: string | null;
 }
 
 interface ApiResponse<T> {
@@ -40,13 +41,19 @@ interface CartActionResult {
   data?: CartMutationPayload;
 }
 
+interface CartItemStatusResult {
+  inCart: boolean;
+  needsAuth: boolean;
+  currentFormat?: string | null;
+}
+
 interface CartContextValue {
   count: number;
   bumpKey: number;
   refreshCount: () => Promise<number>;
-  getCartItemStatus: (bookId: string) => Promise<{ inCart: boolean; needsAuth: boolean }>;
+  getCartItemStatus: (bookId: string) => Promise<CartItemStatusResult>;
   addToCart: (bookId: string, format?: string) => Promise<CartActionResult>;
-  removeFromCart: (bookId: string) => Promise<CartActionResult>;
+  removeFromCart: (bookId: string, format?: string) => Promise<CartActionResult>;
 }
 
 const CartContext = createContext<CartContextValue | undefined>(undefined);
@@ -141,9 +148,9 @@ export default function CartProvider({ children }: { children: ReactNode }) {
   }, [refreshCount, status]);
 
   const getCartItemStatus = useCallback(
-    async (bookId: string): Promise<{ inCart: boolean; needsAuth: boolean }> => {
+    async (bookId: string): Promise<CartItemStatusResult> => {
       if (status !== "authenticated" || !accessToken) {
-        return { inCart: false, needsAuth: true };
+        return { inCart: false, needsAuth: true, currentFormat: null };
       }
 
       let response: Response;
@@ -156,22 +163,23 @@ export default function CartProvider({ children }: { children: ReactNode }) {
           cache: "no-store",
         });
       } catch {
-        return { inCart: false, needsAuth: false };
+        return { inCart: false, needsAuth: false, currentFormat: null };
       }
 
       const payload = await parseJson<ApiResponse<CartStatusPayload>>(response);
 
       if (response.status === 401) {
-        return { inCart: false, needsAuth: true };
+        return { inCart: false, needsAuth: true, currentFormat: null };
       }
 
       if (!response.ok || !payload?.success) {
-        return { inCart: false, needsAuth: false };
+        return { inCart: false, needsAuth: false, currentFormat: null };
       }
 
       return {
         inCart: Boolean(payload.data?.inCart),
         needsAuth: false,
+        currentFormat: payload.data?.currentFormat ?? null,
       };
     },
     [accessToken, status],
@@ -241,7 +249,7 @@ export default function CartProvider({ children }: { children: ReactNode }) {
   );
 
   const removeFromCart = useCallback(
-    async (bookId: string): Promise<CartActionResult> => {
+    async (bookId: string, format?: string): Promise<CartActionResult> => {
       if (status !== "authenticated" || !accessToken) {
         return {
           success: false,
@@ -252,7 +260,10 @@ export default function CartProvider({ children }: { children: ReactNode }) {
 
       let response: Response;
       try {
-        response = await fetch(`${BACKEND_URL}/api/cart/items/${bookId}`, {
+        const removeUrl = format
+          ? `${BACKEND_URL}/api/cart/items/${bookId}?format=${encodeURIComponent(format)}`
+          : `${BACKEND_URL}/api/cart/items/${bookId}`;
+        response = await fetch(removeUrl, {
           method: "DELETE",
           headers: {
             Authorization: `Bearer ${accessToken}`,

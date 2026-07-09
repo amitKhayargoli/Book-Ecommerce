@@ -1,25 +1,9 @@
-export type EsewaFormFields = {
-  amount: string;
-  tax_amount: string;
-  total_amount: string;
-  transaction_uuid: string;
-  product_code: string;
-  product_service_charge: string;
-  product_delivery_charge: string;
-  success_url: string;
-  failure_url: string;
-  signed_field_names: string;
-  signature: string;
-};
-
-export type PaymentProvider = "ESEWA" | "KHALTI";
+export type PaymentProvider = "KHALTI";
 
 export interface CheckoutInitiationResponse {
   orderId: string;
   transactionUuid: string;
   paymentProvider: PaymentProvider;
-  action?: string;
-  form?: EsewaFormFields;
   paymentUrl?: string;
   pidx?: string;
 }
@@ -41,10 +25,7 @@ export interface CheckoutFailureResponse {
 }
 
 export interface ICheckoutService {
-  initiateEsewa(userId: string): Promise<CheckoutInitiationResponse>;
-  initiateKhalti(userId: string): Promise<CheckoutInitiationResponse>;
-  verifyEsewaSuccess(encodedData: string): Promise<CheckoutVerificationResponse>;
-  verifyKhaltiSuccess(pidx: string): Promise<CheckoutVerificationResponse>;
-  handleEsewaFailure(query: Record<string, unknown>): Promise<CheckoutFailureResponse>;
+  initiateKhalti(userId: string, addressId?: string): Promise<CheckoutInitiationResponse>;
+  verifyKhaltiSuccess(pidx: string, purchaseOrderId?: string): Promise<CheckoutVerificationResponse>;
   handleKhaltiFailure(query: Record<string, unknown>): Promise<CheckoutFailureResponse>;
 }

@@ -17,6 +17,7 @@ model User {
   name     String
   email    String   @unique
   password String
+  image    String?
   role     UserRole @default(CUSTOMER)
 
   failedLoginAttempts Int       @default(0)
@@ -158,8 +159,6 @@ model CartItem {
   quantity  Int      @default(1)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-
-  @@unique([cartId, bookId])
 }
 
 model Order {
@@ -307,11 +306,28 @@ model Address {
   state      String?
   postalCode String
   street     String
+  isDefault  Boolean @default(false)
 
   orders Order[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+model IpAccessRule {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  ip        String   // IP address or CIDR range (e.g. "192.168.1.1" or "10.0.0.0/8")
+  type      String   // "ALLOW" or "BLOCK"
+  label     String   // Human-readable description (e.g. "Office VPN", "Known attacker")
+  isActive  Boolean  @default(true)
+  expiresAt DateTime?
+  createdBy String?  @db.ObjectId
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([ip])
+  @@index([type])
+  @@index([isActive])
 }
 
 enum UserRole {

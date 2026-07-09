@@ -10,4 +10,13 @@ export const api = axios.create({
   headers: {
     "Content-Type": "application/json",
   },
+  paramsSerializer(params) {
+    const searchParams = new URLSearchParams();
+    for (const [key, value] of Object.entries(params)) {
+      if (value !== null && value !== undefined && value !== "") {
+        searchParams.set(key, String(value));
+      }
+    }
+    return searchParams.toString();
+  },
 });

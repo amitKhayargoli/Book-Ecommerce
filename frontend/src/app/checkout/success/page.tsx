@@ -16,8 +16,6 @@ interface VerificationResponse {
   };
 }
 
-type Provider = "esewa" | "khalti";
-
 function getQueryValue(value: string | string[] | undefined): string | null {
   if (typeof value === "string") {
     return value;
@@ -49,54 +47,16 @@ function toSearchParams(params: Record<string, string | string[] | undefined>): 
   return query;
 }
 
-function normalizeProvider(value: string | null): Provider | null {
-  if (!value) {
-    return null;
-  }
-
-  const normalized = value.toLowerCase();
-  if (normalized.startsWith("khalti")) {
-    return "khalti";
-  }
-  if (normalized.startsWith("esewa")) {
-    return "esewa";
-  }
-
-  return null;
-}
-
 export default async function CheckoutSuccessPage({
   searchParams,
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const params = await searchParams;
-  const providerParam = getQueryValue(params.provider);
-  const encodedData = getQueryValue(params.data);
   const pidx = getQueryValue(params.pidx);
   const purchaseOrderId = getQueryValue(params.purchase_order_id);
 
-  const inferredProvider =
-    normalizeProvider(providerParam) ??
-    (pidx ? "khalti" : null) ??
-    (purchaseOrderId?.startsWith("KHL-") ? "khalti" : null) ??
-    "esewa";
-  const provider: Provider = inferredProvider;
-
-  if (provider === "esewa" && !encodedData) {
-    return (
-      <main className="min-h-screen pt-24 pb-20 px-6 md:px-10 max-w-[900px] mx-auto w-full">
-        <section className="rounded-2xl border border-yellow-500/25 bg-yellow-500/10 p-8">
-          <h1 className="font-display text-3xl font-semibold">Missing callback payload</h1>
-          <p className="text-text-secondary mt-3">
-            Payment callback details were not received.
-          </p>
-        </section>
-      </main>
-    );
-  }
-
-  if (provider === "khalti" && !pidx) {
+  if (!pidx) {
     return (
       <main className="min-h-screen pt-24 pb-20 px-6 md:px-10 max-w-[900px] mx-auto w-full">
         <section className="rounded-2xl border border-yellow-500/25 bg-yellow-500/10 p-8">
@@ -112,18 +72,12 @@ export default async function CheckoutSuccessPage({
   let verification: VerificationResponse | null = null;
   try {
     const callbackQuery = toSearchParams(params);
-    const endpoint =
-      provider === "khalti"
-        ? `${BACKEND_BASE_URL}/api/checkout/khalti/success?${callbackQuery.toString()}`
-        : `${BACKEND_BASE_URL}/api/checkout/esewa/success?data=${encodeURIComponent(encodedData ?? "")}`;
+    const endpoint = `${BACKEND_BASE_URL}/api/checkout/khalti/success?${callbackQuery.toString()}`;
 
-    const response = await fetch(
-      endpoint,
-      {
-        method: "GET",
-        cache: "no-store",
-      },
-    );
+    const response = await fetch(endpoint, {
+      method: "GET",
+      cache: "no-store",
+    });
 
     verification = (await response.json()) as VerificationResponse;
   } catch {
