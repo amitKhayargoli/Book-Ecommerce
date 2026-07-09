@@ -139,7 +139,14 @@ export type ResendVerificationDto = z.infer<typeof ResendVerificationSchema>;
 
 export const UpdateProfileSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters").max(100).optional(),
+  image: z.string().url("Invalid image URL").optional(),
 });
 
 export type UpdateProfileDto = z.infer<typeof UpdateProfileSchema>;
+
+export const ImportDataSchema = z.object({
+  data: z.record(z.string(), z.unknown()),
+});
+
+export type ImportDataDto = z.infer<typeof ImportDataSchema>;
 

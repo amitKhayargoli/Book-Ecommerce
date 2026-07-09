@@ -99,14 +99,58 @@ export class AuthController {
     sendSuccess(res, result, "Profile updated successfully");
   };
 
+  getOrders = async (req: Request, res: Response): Promise<void> => {
+    const user = (req as AuthenticatedRequest).user;
+    if (!user) {
+      res.status(401).json({ success: false, message: "Authentication required" });
+      return;
+    }
+    const orders = await this.service.getOrders(user.id);
+    sendSuccess(res, orders, "Orders fetched successfully");
+  };
+
   exportData = async (req: Request, res: Response): Promise<void> => {
     const user = (req as AuthenticatedRequest).user;
     if (!user) {
       res.status(401).json({ success: false, message: "Authentication required" });
       return;
     }
-    const result = await this.service.exportData(user.id);
-    sendSuccess(res, result, "Data exported successfully");
+
+    const format = (req.query.format as string)?.toLowerCase() ?? "json";
+
+    if (format === "csv") {
+      const csv = await this.service.exportDataCsv(user.id);
+      res.setHeader("Content-Type", "text/csv; charset=utf-8");
+      res.setHeader("Content-Disposition", `attachment; filename="bookstore-export-${user.id.slice(-8)}.csv"`);
+      res.status(200).send(csv);
+      return;
+    }
+
+    const data = await this.service.exportData(user.id);
+    res.setHeader("Content-Type", "application/json; charset=utf-8");
+    res.setHeader("Content-Disposition", `attachment; filename="bookstore-export-${user.id.slice(-8)}.json"`);
+    res.status(200).json(data);
+  };
+
+  /**
+   * Import user data from a previously exported JSON file.
+   * Currently supports importing profile name and image.
+   */
+  importData = async (req: Request, res: Response): Promise<void> => {
+    const user = (req as AuthenticatedRequest).user;
+    if (!user) {
+      res.status(401).json({ success: false, message: "Authentication required" });
+      return;
+    }
+
+    const importPayload = req.body as { data?: Record<string, unknown> };
+    if (!importPayload.data) {
+      res.status(400).json({ success: false, message: "No import data provided" });
+      return;
+    }
+
+    const result = await this.service.importData(user.id, importPayload.data, auditCtx(req));
+    sendSuccess(res, result, result.message);
   };
 
   // ─── MFA Endpoints ──────────────────────────────────────────────────

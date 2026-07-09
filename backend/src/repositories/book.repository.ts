@@ -41,8 +41,9 @@ const bookSelect = {
       },
     },
   },
-  // formatPrices intentionally omitted — the BookFormatPrice MongoDB
-  // collection may not exist yet. Transformers handle this gracefully.
+  formatPrices: {
+    select: { format: true, price: true },
+  },
   _count: {
     select: { reviews: true },
   },

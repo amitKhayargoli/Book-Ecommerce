@@ -32,6 +32,7 @@ import {
 import { signAccessToken, signMfaChallengeToken, verifyMfaChallengeToken } from "../utils/jwt";
 import { MfaService } from "./mfa.service";
 import { AuditService, AuditContext } from "./audit.service";
+import { MailService } from "./mail.service";
 
 const SALT_ROUNDS = 12;
 
@@ -44,10 +45,12 @@ const googleClient = new OAuth2Client(process.env.AUTH_GOOGLE_ID);
 export class AuthService {
   private readonly mfaService: MfaService;
   private readonly audit: AuditService;
+  private readonly mail: MailService;
 
   constructor(audit?: AuditService) {
     this.mfaService = new MfaService();
     this.audit = audit ?? new AuditService();
+    this.mail = new MailService();
   }
 
   /** Build a standard audit context from a request context */
@@ -120,7 +123,8 @@ export class AuthService {
     console.log(`  Expires: ${expiresAt.toISOString()}`);
     console.log("──────────────────────────────────────────────────\n");
 
-    // In production, send the verification email here
+    // Send verification email
+    await this.mail.sendVerificationEmail(normalizedEmail, dto.name, verificationUrl);
 
     this.audit.log("email_verification_sent", this.ctx({ userId: user.id, email: normalizedEmail, ...auditCtx }));
     this.audit.log("register", this.ctx({ userId: user.id, email: normalizedEmail, ...auditCtx }));
@@ -140,6 +144,7 @@ export class AuthService {
         id: true,
         name: true,
         email: true,
+        image: true,
         password: true,
         role: true,
         failedLoginAttempts: true,
@@ -244,6 +249,7 @@ export class AuthService {
       id: user.id,
       name: user.name,
       email: user.email,
+      image: user.image,
       role: user.role,
       tokenVersion: user.tokenVersion,
       userAgentHash,
@@ -282,6 +288,7 @@ export class AuthService {
         id: true,
         name: true,
         email: true,
+        image: true,
         role: true,
         tokenVersion: true,
       },
@@ -308,10 +315,14 @@ export class AuthService {
         id: true,
         name: true,
         email: true,
+        image: true,
         role: true,
         tokenVersion: true,
       },
     });
+
+    // Send welcome email for new Google OAuth sign-ups
+    await this.mail.sendWelcomeEmail(normalizedEmail, dto.name);
 
     this.audit.log("google_oauth_success", this.ctx({ userId: user.id, email: normalizedEmail, ...auditCtx }));
 
@@ -353,6 +364,15 @@ export class AuthService {
       }),
     ]);
 
+    // Send welcome email
+    const user = await prisma.user.findUnique({
+      where: { id: record.userId },
+      select: { name: true, email: true },
+    });
+    if (user) {
+      await this.mail.sendWelcomeEmail(user.email, user.name);
+    }
+
     this.audit.log("email_verified", this.ctx({ userId: record.userId, ...auditCtx }));
 
     return {
@@ -365,7 +385,7 @@ export class AuthService {
 
     const user = await prisma.user.findUnique({
       where: { email: normalizedEmail },
-      select: { id: true, emailVerified: true },
+      select: { id: true, name: true, emailVerified: true },
     });
 
     if (!user) {
@@ -403,6 +423,9 @@ export class AuthService {
     console.log(`  Expires: ${expiresAt.toISOString()}`);
     console.log("──────────────────────────────────────────────────\n");
 
+    // Send the new verification email
+    await this.mail.sendVerificationEmail(normalizedEmail, user.name ?? "there", verificationUrl);
+
     this.audit.log("email_verification_resend", this.ctx({ userId: user.id, email: normalizedEmail, ...auditCtx }));
 
     return {
@@ -420,7 +443,7 @@ export class AuthService {
 
     const user = await prisma.user.findUnique({
       where: { email: normalizedEmail },
-      select: { id: true },
+      select: { id: true, name: true },
     });
 
     // Always return the same message regardless of whether the email exists
@@ -459,7 +482,8 @@ export class AuthService {
     console.log(`  Expires: ${expiresAt.toISOString()}`);
     console.log("──────────────────────────────────────────────────\n");
 
-    // In production, send the reset URL via email here
+    // Send password reset email
+    await this.mail.sendPasswordResetEmail(normalizedEmail, user.name, resetUrl);
 
     this.audit.log("forgot_password_requested", this.ctx({ userId: user.id, email: normalizedEmail, ...auditCtx }));
 
@@ -558,6 +582,7 @@ export class AuthService {
   async updateProfile(userId: string, dto: UpdateProfileDto, auditCtx?: AuditContext): Promise<AuthUserPayload> {
     const data: Record<string, unknown> = {};
     if (dto.name !== undefined) data.name = dto.name;
+    if (dto.image !== undefined) data.image = dto.image;
 
     if (Object.keys(data).length === 0) {
       throw new BadRequestError("No fields to update");
@@ -570,6 +595,7 @@ export class AuthService {
         id: true,
         name: true,
         email: true,
+        image: true,
         role: true,
         tokenVersion: true,
       },
@@ -633,11 +659,13 @@ export class AuthService {
         address: o.address
           ? {
               fullName: o.address.fullName,
+              phone: o.address.phone ?? "",
               street: o.address.street,
               city: o.address.city,
               state: o.address.state,
               postalCode: o.address.postalCode,
               country: o.address.country,
+              isDefault: o.address.isDefault ?? false,
             }
           : null,
       })),
@@ -653,6 +681,359 @@ export class AuthService {
         createdAt: l.createdAt,
       })),
     };
+  }
+
+  async exportDataCsv(userId: string): Promise<string> {
+    const data = await this.exportData(userId);
+    const rows: string[] = [];
+
+    // Helper to escape a CSV field
+    const esc = (val: unknown): string => {
+      const s = val == null ? "" : String(val);
+      // If the value contains commas, quotes, or newlines, wrap in quotes
+      if (s.includes(",") || s.includes('"') || s.includes("\n")) {
+        return `"${s.replace(/"/g, '""')}"`;
+      }
+      return s;
+    };
+
+    // ── User Info ───────────────────────────────────────────────
+    rows.push("=== USER INFO ===");
+    rows.push("Field,Value");
+    const user = data.user as Record<string, unknown> | null;
+    if (user) {
+      for (const [key, val] of Object.entries(user)) {
+        rows.push(`${esc(key)},${esc(val)}`);
+      }
+    }
+    rows.push("");
+
+    // ── Orders ──────────────────────────────────────────────────
+    rows.push("=== ORDERS ===");
+    rows.push("Order ID,Status,Total Amount,Payment Status,Payment Provider,Created At");
+    for (const order of data.orders as Array<Record<string, unknown>>) {
+      rows.push(
+        [
+          esc(order.id),
+          esc(order.status),
+          esc(order.totalAmount),
+          esc(order.paymentStatus),
+          esc(order.paymentProvider),
+          esc(order.createdAt),
+        ].join(","),
+      );
+      // Items within each order
+      const items = order.items as Array<Record<string, unknown>> | undefined;
+      if (items && items.length > 0) {
+        rows.push("  Items: Book Title,Quantity,Price");
+        for (const item of items) {
+          rows.push(`  ${esc(item.bookTitle)},${esc(item.quantity)},${esc(item.price)}`);
+        }
+      }
+    }
+    rows.push("");
+
+    // ── Reviews ─────────────────────────────────────────────────
+    rows.push("=== REVIEWS ===");
+    rows.push("Book Title,Rating,Comment,Created At");
+    for (const review of data.reviews as Array<Record<string, unknown>>) {
+      rows.push(
+        [
+          esc(review.bookTitle),
+          esc(review.rating),
+          esc(review.comment),
+          esc(review.createdAt),
+        ].join(","),
+      );
+    }
+    rows.push("");
+
+    // ── Activity Log ────────────────────────────────────────────
+    rows.push("=== ACTIVITY LOG ===");
+    rows.push("Event,IP Address,Created At");
+    for (const log of data.activityLog as Array<Record<string, unknown>>) {
+      rows.push(
+        [esc(log.event), esc(log.ip), esc(log.createdAt)].join(","),
+      );
+    }
+
+    return rows.join("\n");
+  }
+
+  async importData(
+    userId: string,
+    importData: Record<string, unknown>,
+    auditCtx?: AuditContext,
+  ): Promise<{ message: string }> {
+    const parts: string[] = [];
+
+    // ── Import profile name ───────────────────────────────────────
+    const importedUser = importData.user as Record<string, unknown> | undefined;
+    const updates: Record<string, unknown> = {};
+
+    if (importedUser?.name && typeof importedUser.name === "string") {
+      updates.name = importedUser.name;
+    }
+
+    if (Object.keys(updates).length > 0) {
+      await prisma.user.update({
+        where: { id: userId },
+        data: updates,
+      });
+      parts.push("profile");
+
+      this.audit.log(
+        "profile_updated",
+        this.ctx({
+          userId,
+          ...auditCtx,
+          metadata: {
+            fields: Object.keys(updates),
+            source: "import",
+          },
+        }),
+      );
+    }
+
+    // ── Import addresses ──────────────────────────────────────────
+    const importedOrders = (importData.orders as Array<Record<string, unknown>> | undefined) ?? [];
+    let addressCount = 0;
+
+    // Collect unique addresses from orders
+    const uniqueAddresses: Array<{
+      fullName: string;
+      phone: string;
+      street: string;
+      city: string;
+      state: string;
+      postalCode: string;
+      country: string;
+      isDefault: boolean;
+    }> = [];
+
+    for (const order of importedOrders) {
+      const addr = order.address as Record<string, unknown> | null | undefined;
+      if (!addr || !addr.fullName || !addr.street || !addr.city) continue;
+
+      const key = `${addr.fullName}|${addr.street}|${addr.city}|${addr.postalCode}`;
+      if (uniqueAddresses.some((a) => `${a.fullName}|${a.street}|${a.city}|${a.postalCode}` === key)) continue;
+
+      uniqueAddresses.push({
+        fullName: String(addr.fullName ?? ""),
+        phone: String(addr.phone ?? ""),
+        street: String(addr.street ?? ""),
+        city: String(addr.city ?? ""),
+        state: String(addr.state ?? ""),
+        postalCode: String(addr.postalCode ?? ""),
+        country: String(addr.country ?? ""),
+        isDefault: Boolean(addr.isDefault ?? false),
+      });
+    }
+
+    if (uniqueAddresses.length > 0) {
+      // Check which addresses already exist to avoid duplicates
+      const existingAddresses = await prisma.address.findMany({
+        where: { userId },
+        select: { street: true, city: true, postalCode: true },
+      });
+
+      const existingKeys = new Set(
+        existingAddresses.map((a) => `${a.street}|${a.city}|${a.postalCode}`),
+      );
+
+      for (const addr of uniqueAddresses) {
+        const key = `${addr.street}|${addr.city}|${addr.postalCode}`;
+        if (existingKeys.has(key)) continue;
+
+        await prisma.address.create({
+          data: {
+            userId,
+            fullName: addr.fullName,
+            phone: addr.phone,
+            street: addr.street,
+            city: addr.city,
+            state: addr.state,
+            postalCode: addr.postalCode,
+            country: addr.country,
+            isDefault: addr.isDefault,
+          },
+        });
+        addressCount++;
+      }
+    }
+
+    if (addressCount > 0) {
+      parts.push(`${addressCount} address(es)`);
+
+      this.audit.log(
+        "address_imported",
+        this.ctx({
+          userId,
+          ...auditCtx,
+          metadata: { count: addressCount, source: "import" },
+        }),
+      );
+    }
+
+    // ── Import orders ─────────────────────────────────────────────
+    let orderCount = 0;
+    let orderItemCount = 0;
+    let skippedOrderCount = 0;
+
+    if (importedOrders.length > 0) {
+      // Collect unique book titles from all order items
+      const allTitles = new Set<string>();
+      for (const order of importedOrders) {
+        const items = (order.items as Array<Record<string, unknown>> | undefined) ?? [];
+        for (const item of items) {
+          if (item.bookTitle && typeof item.bookTitle === "string") {
+            allTitles.add(item.bookTitle);
+          }
+        }
+      }
+
+      // If no book titles found, skip all order imports
+      if (allTitles.size === 0) {
+        skippedOrderCount += importedOrders.length;
+      } else {
+        // Look up books by title
+        const books = await prisma.book.findMany({
+          where: { title: { in: Array.from(allTitles) } },
+          select: { id: true, title: true },
+        });
+        const titleToBookId = new Map(books.map((b) => [b.title, b.id]));
+
+        for (const order of importedOrders) {
+          const items = (order.items as Array<Record<string, unknown>> | undefined) ?? [];
+
+          // Resolve item book IDs; skip if any book can't be found
+          const resolvedItems: Array<{ bookId: string; quantity: number; price: number }> = [];
+          let allResolved = true;
+
+          for (const item of items) {
+            const bookTitle = String(item.bookTitle ?? "");
+            const bookId = titleToBookId.get(bookTitle);
+            if (!bookId) {
+              allResolved = false;
+              break;
+            }
+            resolvedItems.push({
+              bookId,
+              quantity: Number(item.quantity ?? 1),
+              price: Number(item.price ?? 0),
+            });
+          }
+
+          if (!allResolved || resolvedItems.length === 0) {
+            skippedOrderCount++;
+            continue;
+          }
+
+          const totalAmount = Number(order.totalAmount ?? resolvedItems.reduce((sum, i) => sum + i.price * i.quantity, 0));
+          const validOrderStatuses = ["PENDING", "CONFIRMED", "SHIPPED", "DELIVERED", "CANCELLED"] as const;
+          const validPaymentStatuses = ["PENDING", "PAID", "FAILED", "REFUNDED"] as const;
+
+          const rawStatus = String(order.status ?? "PENDING").toUpperCase();
+          const rawPaymentStatus = String(order.paymentStatus ?? "PENDING").toUpperCase();
+
+          const safeStatus = validOrderStatuses.includes(rawStatus as any) ? rawStatus : "PENDING";
+          const safePaymentStatus = validPaymentStatuses.includes(rawPaymentStatus as any) ? rawPaymentStatus : "PENDING";
+          const paymentProvider = String(order.paymentProvider ?? "IMPORT");
+          const transactionUuid = crypto.randomUUID();
+
+          await prisma.order.create({
+            data: {
+              userId,
+              totalAmount,
+              status: safeStatus as any,
+              paymentStatus: safePaymentStatus as any,
+              paymentProvider,
+              paymentTransactionUuid: transactionUuid,
+              items: {
+                create: resolvedItems,
+              },
+            },
+          });
+
+          orderCount++;
+          orderItemCount += resolvedItems.length;
+        }
+      }
+    }
+
+    if (orderCount > 0) {
+      parts.push(`${orderCount} order(s) with ${orderItemCount} item(s)`);
+
+      this.audit.log(
+        "orders_imported",
+        this.ctx({
+          userId,
+          ...auditCtx,
+          metadata: {
+            count: orderCount,
+            items: orderItemCount,
+            skipped: skippedOrderCount,
+            source: "import",
+          },
+        }),
+      );
+    }
+
+    if (skippedOrderCount > 0) {
+      parts.push(`${skippedOrderCount} order(s) skipped (books not found in catalog)`);
+    }
+
+    const summary = parts.length > 0
+      ? `Data imported successfully: ${parts.join("; ")}.`
+      : "Data imported successfully. No new information to restore from this export.";
+
+    return { message: summary };
+  }
+
+  async getOrders(userId: string) {
+    return prisma.order.findMany({
+      where: { userId },
+      select: {
+        id: true,
+        totalAmount: true,
+        status: true,
+        paymentStatus: true,
+        paymentProvider: true,
+        paymentTransactionUuid: true,
+        paymentRefId: true,
+        createdAt: true,
+        updatedAt: true,
+        address: {
+          select: {
+            fullName: true,
+            street: true,
+            city: true,
+            state: true,
+            postalCode: true,
+            country: true,
+          },
+        },
+        items: {
+          select: {
+            id: true,
+            quantity: true,
+            price: true,
+            book: {
+              select: {
+                id: true,
+                title: true,
+                slug: true,
+                coverImage: true,
+                author: {
+                  select: { name: true },
+                },
+              },
+            },
+          },
+        },
+      },
+      orderBy: { createdAt: "desc" },
+    });
   }
 
   me(user: AuthUserPayload): AuthUserPayload {
@@ -673,6 +1054,7 @@ export class AuthService {
         id: true,
         name: true,
         email: true,
+        image: true,
         role: true,
         isMfaEnabled: true,
         totpSecret: true,
@@ -708,6 +1090,7 @@ export class AuthService {
       id: user.id,
       name: user.name,
       email: user.email,
+      image: user.image,
       role: user.role,
       tokenVersion: user.tokenVersion,
       userAgentHash,

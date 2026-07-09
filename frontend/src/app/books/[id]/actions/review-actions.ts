@@ -84,7 +84,13 @@ export async function getReviewsAction(bookId: string, page = 1, limit = 100, so
     const { data } = await reviewEndpoints.getReviewsByBookId(bookId, page, limit, sortBy, sortOrder);
     return { success: true, data: data.data, meta: data.meta };
   } catch (error: unknown) {
-    console.error("Error fetching reviews:", error);
+    // Log full error details to understand the 400
+    if (error && typeof error === "object" && "response" in error) {
+      const axiosErr = error as { response?: { status?: number; data?: unknown } };
+      console.error("Reviews API 400 — status:", axiosErr.response?.status, "body:", JSON.stringify(axiosErr.response?.data));
+    } else {
+      console.error("Error fetching reviews:", error);
+    }
     return { success: false, data: [], meta: undefined };
   }
 }

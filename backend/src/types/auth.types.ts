@@ -4,6 +4,7 @@ export interface AuthUserPayload {
   id: string;
   name: string;
   email: string;
+  image?: string | null;
   role: UserRole;
   tokenVersion: number;
   userAgentHash?: string;

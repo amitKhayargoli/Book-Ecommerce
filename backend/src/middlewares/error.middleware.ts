@@ -45,7 +45,8 @@ export const errorHandler = (
   }
 
   if (err instanceof Prisma.PrismaClientValidationError) {
-    res.status(400).json({ success: false, message: "Invalid data provided" });
+    console.error("Prisma validation error:", err.message);
+    res.status(400).json({ success: false, message: `Invalid data: ${err.message}` });
     return;
   }
 

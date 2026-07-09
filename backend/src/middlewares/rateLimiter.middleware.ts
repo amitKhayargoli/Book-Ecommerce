@@ -25,6 +25,10 @@ export function perUserRateLimit(max: number, windowMs = 15 * 60 * 1000) {
       // ipKeyGenerator properly normalizes IPv4/IPv6 addresses.
       return ipKeyGenerator(req.ip ?? req.socket.remoteAddress ?? "unknown");
     },
+    skip: (req: Request): boolean => {
+      // Allowlisted IPs bypass rate limiting entirely
+      return (req as any).ipIsAllowed === true;
+    },
     message: {
       success: false,
       message: "Too many requests. Please slow down and try again.",
