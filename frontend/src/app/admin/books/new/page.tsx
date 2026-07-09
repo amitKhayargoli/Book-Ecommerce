@@ -278,7 +278,7 @@ export default function AddBookPage() {
         ? `${Number(formData.publishedYear)}-01-01T00:00:00.000Z`
         : undefined,
       language: formData.language.trim() || undefined,
-      coverImage: formData.coverImageUrl.trim() || "https://placehold.co/600x900?text=Book+Cover",
+      coverImage: formData.coverImageUrl.trim() || undefined,
       mockupImage: formData.mockupImageUrl.trim() || undefined,
       previewImages: formData.previewImages.filter((img) => img.trim().length > 0),
       featured: formData.isFeatured,

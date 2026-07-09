@@ -6,8 +6,9 @@ const config: Config = {
   roots: ["<rootDir>/src"],
   testMatch: ["**/__tests__/**/*.test.ts"],
   transform: {
-    "^.+\\.ts$": "ts-jest",
+    "^.+\\.[tj]s$": "ts-jest",
   },
+  transformIgnorePatterns: ["/node_modules/(?!@scure/base|@noble|@otplib)"],
   moduleFileExtensions: ["ts", "js", "json"],
   clearMocks: true,
   resetMocks: false,

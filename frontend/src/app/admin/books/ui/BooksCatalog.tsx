@@ -100,6 +100,52 @@ function ConfirmDeleteModal({
   );
 }
 
+// ── Book placeholder SVG ─────────────────────────────────────────
+function BookPlaceholder() {
+  return (
+    <svg
+      viewBox="0 0 64 96"
+      className="w-full h-full"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+    >
+      <rect x="0" y="0" width="64" height="96" rx="4" fill="#1e1e2e" />
+      <rect x="4" y="2" width="56" height="92" rx="2" fill="#2a2a3e" />
+      <rect x="8" y="4" width="48" height="88" rx="1" fill="#3a3a4e" />
+      <rect x="0" y="0" width="4" height="96" rx="2" fill="#5555cc" opacity="0.6" />
+      <line x1="16" y1="28" x2="52" y2="28" stroke="#5555cc" strokeWidth="2" strokeLinecap="round" opacity="0.5" />
+      <line x1="16" y1="36" x2="48" y2="36" stroke="#ffffff" strokeWidth="1" strokeLinecap="round" opacity="0.15" />
+      <line x1="16" y1="44" x2="40" y2="44" stroke="#ffffff" strokeWidth="1" strokeLinecap="round" opacity="0.1" />
+      <line x1="16" y1="52" x2="44" y2="52" stroke="#ffffff" strokeWidth="1" strokeLinecap="round" opacity="0.08" />
+      <rect x="22" y="60" width="20" height="24" rx="2" stroke="#5555cc" strokeWidth="1.5" opacity="0.4" fill="none" />
+      <line x1="28" y1="66" x2="36" y2="66" stroke="#5555cc" strokeWidth="1" strokeLinecap="round" opacity="0.4" />
+      <line x1="28" y1="70" x2="36" y2="70" stroke="#5555cc" strokeWidth="1" strokeLinecap="round" opacity="0.3" />
+      <line x1="28" y1="74" x2="34" y2="74" stroke="#5555cc" strokeWidth="1" strokeLinecap="round" opacity="0.3" />
+    </svg>
+  );
+}
+
+// ── Book cover with fallback ──────────────────────────────────────
+function BookCover({ coverSrc, title }: { coverSrc: string | null | undefined; title: string }) {
+  const [errored, setErrored] = useState(false);
+
+  // Filter out external placeholder URLs that next/image can't load
+  const isPlaceholder = coverSrc?.includes("placehold.co");
+
+  if (!coverSrc || isPlaceholder || errored) return <BookPlaceholder />;
+
+  return (
+    <Image
+      src={coverSrc}
+      alt={title}
+      width={64}
+      height={96}
+      className="w-full h-full object-cover"
+      onError={() => setErrored(true)}
+    />
+  );
+}
+
 // ── Main Component ────────────────────────────────────────────────
 export function BooksCatalog({ books: initialBooks }: BooksCatalogProps) {
   const [books, setBooks] = useState(initialBooks);
@@ -286,19 +332,7 @@ export function BooksCatalog({ books: initialBooks }: BooksCatalogProps) {
               >
                 <div className="flex items-start gap-4">
                   <div className="w-16 h-24 rounded-lg overflow-hidden border border-white/10 bg-white/5 shrink-0">
-                    {coverSrc ? (
-                      <Image
-                        src={coverSrc}
-                        alt={book.title}
-                        width={64}
-                        height={96}
-                        className="w-full h-full object-cover"
-                      />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center text-[10px] text-text-secondary">
-                        No Cover
-                      </div>
-                    )}
+                    <BookCover coverSrc={coverSrc} title={book.title} />
                   </div>
 
                   <div className="min-w-0 flex-1">
