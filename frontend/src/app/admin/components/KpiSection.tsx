@@ -27,9 +27,6 @@ export function KpiSection({ kpis }: KpiSectionProps) {
             transition={{ duration: 0.4, delay: index * 0.06 }}
             className="relative overflow-hidden rounded-3xl border border-white/5 bg-card/60 px-5 py-4 md:px-6 md:py-5"
           >
-            <div className="absolute right-[-40px] top-[-40px] h-28 w-28 rounded-full bg-white/[0.02]" />
-            <div className="absolute right-[-10px] bottom-[-10px] h-16 w-16 rounded-full bg-white/[0.03]" />
-
             <div className="relative z-10 flex items-start justify-between gap-4">
               <div className="space-y-1">
                 <p className="text-[0.7rem] tracking-[0.3em] uppercase text-text-secondary">
