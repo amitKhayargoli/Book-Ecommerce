@@ -1,7 +1,9 @@
 import crypto from "crypto";
 import { Prisma } from "@prisma/client";
+import prisma from "../lib/prisma";
 import { AppError, BadRequestError, NotFoundError } from "../utils/errors";
 import { CheckoutRepository } from "../repositories/checkout.repository";
+import { MailService } from "./mail.service";
 import {
   CheckoutFailureResponse,
   CheckoutInitiationResponse,
@@ -9,28 +11,11 @@ import {
   ICheckoutService,
 } from "../types/checkout.types";
 
-const SIGNED_FIELD_NAMES = "total_amount,transaction_uuid,product_code";
 const TRANSACTION_UUID_REGEX = /^[A-Za-z0-9-]{8,64}$/;
 const AMOUNT_EPSILON = 0.001;
 const KHALTI_PAISA_MULTIPLIER = 100;
 const DEFAULT_KHALTI_INITIATE_URL = "https://dev.khalti.com/api/v2/epayment/initiate/";
 const DEFAULT_KHALTI_LOOKUP_URL = "https://dev.khalti.com/api/v2/epayment/lookup/";
-
-interface EsewaSuccessPayload {
-  transaction_code?: string;
-  status?: string;
-  total_amount?: string;
-  transaction_uuid?: string;
-  product_code?: string;
-  signed_field_names?: string;
-  signature?: string;
-}
-
-interface EsewaStatusCheckPayload {
-  status?: string;
-  ref_id?: string;
-  transaction_uuid?: string;
-}
 
 interface KhaltiInitiateResponsePayload {
   pidx?: string;
@@ -56,10 +41,7 @@ interface KhaltiConfig {
 
 export class CheckoutService implements ICheckoutService {
   private readonly repo: CheckoutRepository;
-  private readonly productCode: string;
-  private readonly secretKey: string;
-  private readonly formUrl: string;
-  private readonly statusCheckUrl: string;
+  private readonly mail: MailService;
   private readonly frontendBaseUrl: string;
   private readonly khaltiSecretKey?: string;
   private readonly khaltiInitiateUrl?: string;
@@ -68,10 +50,7 @@ export class CheckoutService implements ICheckoutService {
 
   constructor() {
     this.repo = new CheckoutRepository();
-    this.productCode = this.getRequiredEnv("ESEWA_PRODUCT_CODE");
-    this.secretKey = this.getRequiredEnv("ESEWA_SECRET_KEY");
-    this.formUrl = this.getRequiredEnv("ESEWA_FORM_URL");
-    this.statusCheckUrl = this.getRequiredEnv("ESEWA_STATUS_CHECK_URL");
+    this.mail = new MailService();
     this.frontendBaseUrl = this.getRequiredEnv("FRONTEND_BASE_URL");
     this.khaltiSecretKey =
       this.getOptionalEnv("KHALTI_SECRET_KEY") ?? this.getOptionalEnv("KHALTI_SECRET");
@@ -110,7 +89,7 @@ export class CheckoutService implements ICheckoutService {
       );
     }
 
-    const secretKey = this.khaltiSecretKey;
+    const secretKey = this.khaltiSecretKey!;
     const initiateUrl = this.khaltiInitiateUrl ?? DEFAULT_KHALTI_INITIATE_URL;
     const lookupUrl = this.khaltiLookupUrl ?? DEFAULT_KHALTI_LOOKUP_URL;
 
@@ -126,57 +105,8 @@ export class CheckoutService implements ICheckoutService {
     };
   }
 
-  private formatAmount(value: number): string {
-    return value.toFixed(2);
-  }
-
   private generateTransactionUuid(): string {
-    return `ESW-${Date.now()}-${crypto.randomBytes(4).toString("hex")}`;
-  }
-
-  private generateKhaltiTransactionUuid(): string {
     return `KHL-${Date.now()}-${crypto.randomBytes(4).toString("hex")}`;
-  }
-
-  private buildHmacSignature(message: string): string {
-    return crypto.createHmac("sha256", this.secretKey).update(message).digest("base64");
-  }
-
-  private safeCompareSignature(left: string, right: string): boolean {
-    const leftBuffer = Buffer.from(left);
-    const rightBuffer = Buffer.from(right);
-
-    if (leftBuffer.length !== rightBuffer.length) {
-      return false;
-    }
-
-    return crypto.timingSafeEqual(leftBuffer, rightBuffer);
-  }
-
-  private parseAmount(value: string | undefined, fieldName: string): number {
-    if (!value) {
-      throw new BadRequestError(`${fieldName} is required`);
-    }
-
-    const amount = Number(value);
-    if (!Number.isFinite(amount) || amount < 0) {
-      throw new BadRequestError(`${fieldName} is invalid`);
-    }
-
-    return amount;
-  }
-
-  private parseKhaltiAmountInPaisa(value: string | number | undefined): number {
-    if (value === undefined || value === null) {
-      throw new BadRequestError("Khalti total_amount is required");
-    }
-
-    const numeric = typeof value === "number" ? value : Number(value);
-    if (!Number.isFinite(numeric) || numeric < 0) {
-      throw new BadRequestError("Khalti total_amount is invalid");
-    }
-
-    return Math.round(numeric);
   }
 
   private async readErrorPayload(response: Response): Promise<string> {
@@ -219,14 +149,6 @@ export class CheckoutService implements ICheckoutService {
     return JSON.parse(JSON.stringify(value)) as Prisma.InputJsonValue;
   }
 
-  private assertTransactionUuid(transactionUuid: string | undefined): string {
-    if (!transactionUuid || !TRANSACTION_UUID_REGEX.test(transactionUuid)) {
-      throw new BadRequestError("Invalid transaction_uuid");
-    }
-
-    return transactionUuid;
-  }
-
   private parseTransactionUuid(value: unknown): string | null {
     if (typeof value !== "string") {
       return null;
@@ -235,85 +157,12 @@ export class CheckoutService implements ICheckoutService {
     return TRANSACTION_UUID_REGEX.test(value) ? value : null;
   }
 
-  private assertOrderProvider(orderProvider: string, expectedProvider: "ESEWA" | "KHALTI"): void {
-    if (orderProvider !== expectedProvider) {
-      throw new BadRequestError(`Unexpected payment provider: ${orderProvider}`);
-    }
-  }
-
-  private decodeSuccessPayload(encodedData: string): EsewaSuccessPayload {
-    let decoded = "";
-    try {
-      decoded = Buffer.from(encodedData, "base64").toString("utf8");
-    } catch {
-      throw new BadRequestError("Invalid eSewa callback payload encoding");
-    }
-
-    try {
-      return JSON.parse(decoded) as EsewaSuccessPayload;
-    } catch {
-      throw new BadRequestError("Invalid eSewa callback payload format");
-    }
-  }
-
-  private verifySuccessPayloadSignature(payload: EsewaSuccessPayload): void {
-    const signature = payload.signature;
-    const signedFieldNames = payload.signed_field_names;
-
-    if (!signature || !signedFieldNames) {
-      throw new BadRequestError("Missing callback signature fields");
-    }
-
-    const fieldNames = signedFieldNames
-      .split(",")
-      .map((field) => field.trim())
-      .filter((field) => field.length > 0);
-
-    if (fieldNames.length === 0) {
-      throw new BadRequestError("signed_field_names is invalid");
-    }
-
-    const payloadRecord = payload as Record<string, unknown>;
-    const message = fieldNames
-      .map((fieldName) => {
-        const value = payloadRecord[fieldName];
-        if (typeof value !== "string" || value.length === 0) {
-          throw new BadRequestError(`Missing signed callback field: ${fieldName}`);
-        }
-
-        return `${fieldName}=${value}`;
-      })
-      .join(",");
-
-    const expectedSignature = this.buildHmacSignature(message);
-    if (!this.safeCompareSignature(expectedSignature, signature)) {
-      throw new BadRequestError("Invalid callback signature");
-    }
-  }
-
-  private async callEsewaStatusCheck(
-    transactionUuid: string,
-    totalAmount: string,
-  ): Promise<EsewaStatusCheckPayload> {
-    const params = new URLSearchParams({
-      product_code: this.productCode,
-      total_amount: totalAmount,
-      transaction_uuid: transactionUuid,
-    });
-
-    const response = await fetch(`${this.statusCheckUrl}?${params.toString()}`, {
-      method: "GET",
-      headers: {
-        Accept: "application/json",
-      },
-    });
-
-    if (!response.ok) {
-      throw new AppError("Failed to verify eSewa transaction status", 502);
-    }
-
-    const payload = (await response.json()) as EsewaStatusCheckPayload;
-    return payload;
+  private getUnitPrice(
+    book: { price: number; formatPrices: Array<{ format: string; price: number }> },
+    format: string | null | undefined,
+  ): number {
+    if (!format) return book.price;
+    return book.formatPrices?.find((fp) => fp.format === format)?.price ?? book.price;
   }
 
   private async callKhaltiLookup(pidx: string, config: KhaltiConfig): Promise<KhaltiLookupPayload> {
@@ -339,56 +188,7 @@ export class CheckoutService implements ICheckoutService {
     return payload;
   }
 
-  async initiateEsewa(userId: string): Promise<CheckoutInitiationResponse> {
-    const cartItems = await this.repo.findCartItemsByUserId(userId);
-    if (cartItems.length === 0) {
-      throw new BadRequestError("Cart is empty");
-    }
-
-    const totalAmount = cartItems.reduce(
-      (sum, item) => sum + item.book.price * item.quantity,
-      0,
-    );
-
-    const transactionUuid = this.generateTransactionUuid();
-    const formattedTotalAmount = this.formatAmount(totalAmount);
-    const signatureMessage = `total_amount=${formattedTotalAmount},transaction_uuid=${transactionUuid},product_code=${this.productCode}`;
-    const signature = this.buildHmacSignature(signatureMessage);
-
-    const order = await this.repo.createPendingOrder({
-      userId,
-      totalAmount,
-      paymentProvider: "ESEWA",
-      paymentTransactionUuid: transactionUuid,
-      items: cartItems.map((item) => ({
-        bookId: item.bookId,
-        quantity: item.quantity,
-        price: item.book.price,
-      })),
-    });
-
-    return {
-      orderId: order.id,
-      transactionUuid,
-      paymentProvider: "ESEWA",
-      action: this.formUrl,
-      form: {
-        amount: formattedTotalAmount,
-        tax_amount: this.formatAmount(0),
-        total_amount: formattedTotalAmount,
-        transaction_uuid: transactionUuid,
-        product_code: this.productCode,
-        product_service_charge: this.formatAmount(0),
-        product_delivery_charge: this.formatAmount(0),
-        success_url: `${this.frontendBaseUrl}/checkout/success`,
-        failure_url: `${this.frontendBaseUrl}/checkout/failure`,
-        signed_field_names: SIGNED_FIELD_NAMES,
-        signature,
-      },
-    };
-  }
-
-  async initiateKhalti(userId: string): Promise<CheckoutInitiationResponse> {
+  async initiateKhalti(userId: string, addressId?: string): Promise<CheckoutInitiationResponse> {
     const config = this.getKhaltiConfig();
     const cartItems = await this.repo.findCartItemsByUserId(userId);
     if (cartItems.length === 0) {
@@ -396,7 +196,7 @@ export class CheckoutService implements ICheckoutService {
     }
 
     const totalAmount = cartItems.reduce(
-      (sum, item) => sum + item.book.price * item.quantity,
+      (sum, item) => sum + this.getUnitPrice(item.book, item.format) * item.quantity,
       0,
     );
     const totalAmountInPaisa = Math.round(totalAmount * KHALTI_PAISA_MULTIPLIER);
@@ -407,16 +207,17 @@ export class CheckoutService implements ICheckoutService {
       throw new BadRequestError("Khalti requires minimum payable amount of NPR 10 (1000 paisa)");
     }
 
-    const transactionUuid = this.generateKhaltiTransactionUuid();
+    const transactionUuid = this.generateTransactionUuid();
     const order = await this.repo.createPendingOrder({
       userId,
       totalAmount,
       paymentProvider: "KHALTI",
       paymentTransactionUuid: transactionUuid,
+      addressId,
       items: cartItems.map((item) => ({
         bookId: item.bookId,
         quantity: item.quantity,
-        price: item.book.price,
+        price: this.getUnitPrice(item.book, item.format),
       })),
     });
 
@@ -458,88 +259,6 @@ export class CheckoutService implements ICheckoutService {
     };
   }
 
-  async verifyEsewaSuccess(encodedData: string): Promise<CheckoutVerificationResponse> {
-    const payload = this.decodeSuccessPayload(encodedData);
-    this.verifySuccessPayloadSignature(payload);
-
-    if (payload.product_code !== this.productCode) {
-      throw new BadRequestError("Unexpected eSewa product_code");
-    }
-
-    const transactionUuid = this.assertTransactionUuid(payload.transaction_uuid);
-    const callbackAmount = this.parseAmount(payload.total_amount, "total_amount");
-
-    const order = await this.repo.findOrderByTransactionUuid(transactionUuid);
-    if (!order) {
-      throw new NotFoundError("Order");
-    }
-    this.assertOrderProvider(order.paymentProvider, "ESEWA");
-
-    if (Math.abs(order.totalAmount - callbackAmount) > AMOUNT_EPSILON) {
-      throw new BadRequestError("Callback amount does not match order total");
-    }
-
-    const statusCheck = await this.callEsewaStatusCheck(transactionUuid, this.formatAmount(callbackAmount));
-    const status = statusCheck.status?.toUpperCase() ?? "UNKNOWN";
-
-    if (status === "COMPLETE") {
-      if (this.repo.isPaid(order.paymentStatus)) {
-        return {
-          orderId: order.id,
-          transactionUuid,
-          paymentStatus: "PAID",
-          orderStatus: "CONFIRMED",
-          statusCheck: status,
-          alreadyProcessed: true,
-        };
-      }
-
-      const paymentRefId =
-        typeof statusCheck.ref_id === "string" && statusCheck.ref_id.length > 0
-          ? statusCheck.ref_id
-          : null;
-
-      await this.repo.markOrderPaidAndClearCart(
-        order.id,
-        order.userId,
-        order.items.map((item) => item.bookId),
-        paymentRefId,
-        this.toJsonValue({
-          callback: payload,
-          statusCheck,
-        }),
-      );
-
-      return {
-        orderId: order.id,
-        transactionUuid,
-        paymentStatus: "PAID",
-        orderStatus: "CONFIRMED",
-        statusCheck: status,
-        alreadyProcessed: false,
-      };
-    }
-
-    if (!this.repo.isPaid(order.paymentStatus)) {
-      await this.repo.markOrderFailed(
-        order.id,
-        this.toJsonValue({
-          callback: payload,
-          statusCheck,
-        }),
-      );
-    }
-
-    return {
-      orderId: order.id,
-      transactionUuid,
-      paymentStatus: "FAILED",
-      orderStatus: "PENDING",
-      statusCheck: status,
-      alreadyProcessed: false,
-    };
-  }
-
   async verifyKhaltiSuccess(
     pidx: string,
     purchaseOrderId?: string,
@@ -563,7 +282,6 @@ export class CheckoutService implements ICheckoutService {
     if (!order) {
       throw new NotFoundError("Order");
     }
-    this.assertOrderProvider(order.paymentProvider, "KHALTI");
 
     const callbackAmountInPaisa = this.parseKhaltiAmountInPaisa(lookup.total_amount);
     const expectedAmountInPaisa = Math.round(order.totalAmount * KHALTI_PAISA_MULTIPLIER);
@@ -599,6 +317,9 @@ export class CheckoutService implements ICheckoutService {
         }),
       );
 
+      // Send order confirmation email (non-blocking)
+      await this.sendOrderConfirmation(order.userId, order.id, order.totalAmount);
+
       return {
         orderId: order.id,
         transactionUuid,
@@ -626,56 +347,6 @@ export class CheckoutService implements ICheckoutService {
       orderStatus: "PENDING",
       statusCheck: status,
       alreadyProcessed: false,
-    };
-  }
-
-  async handleEsewaFailure(query: Record<string, unknown>): Promise<CheckoutFailureResponse> {
-    const transactionUuidValue = query.transaction_uuid;
-    const transactionUuid =
-      typeof transactionUuidValue === "string" && TRANSACTION_UUID_REGEX.test(transactionUuidValue)
-        ? transactionUuidValue
-        : null;
-
-    if (!transactionUuid) {
-      return {
-        handled: false,
-        orderId: null,
-        transactionUuid: null,
-        paymentStatus: null,
-      };
-    }
-
-    const order = await this.repo.findOrderByTransactionUuid(transactionUuid);
-    if (!order) {
-      return {
-        handled: false,
-        orderId: null,
-        transactionUuid,
-        paymentStatus: null,
-      };
-    }
-
-    if (this.repo.isPaid(order.paymentStatus)) {
-      return {
-        handled: true,
-        orderId: order.id,
-        transactionUuid,
-        paymentStatus: "PAID",
-      };
-    }
-
-    await this.repo.markOrderFailed(
-      order.id,
-      this.toJsonValue({
-        failureQuery: query,
-      }),
-    );
-
-    return {
-      handled: true,
-      orderId: order.id,
-      transactionUuid,
-      paymentStatus: "FAILED",
     };
   }
 
@@ -714,7 +385,6 @@ export class CheckoutService implements ICheckoutService {
         paymentStatus: null,
       };
     }
-    this.assertOrderProvider(order.paymentProvider, "KHALTI");
 
     if (this.repo.isPaid(order.paymentStatus)) {
       return {
@@ -738,5 +408,49 @@ export class CheckoutService implements ICheckoutService {
       transactionUuid,
       paymentStatus: "FAILED",
     };
+  }
+
+  private async sendOrderConfirmation(userId: string, orderId: string, totalAmount: number): Promise<void> {
+    try {
+      const user = await prisma.user.findUnique({
+        where: { id: userId },
+        select: { name: true, email: true },
+      });
+      if (!user) return;
+
+      const orderItems = await prisma.orderItem.findMany({
+        where: { orderId },
+        select: {
+          quantity: true,
+          price: true,
+          book: { select: { title: true } },
+        },
+      });
+
+      await this.mail.sendOrderConfirmation(user.email, user.name, {
+        id: orderId,
+        totalAmount,
+        items: orderItems.map((item) => ({
+          title: item.book.title,
+          quantity: item.quantity,
+          price: item.price,
+        })),
+      });
+    } catch (err) {
+      console.error(`[CheckoutService] Failed to send order confirmation for ${orderId}:`, err);
+    }
+  }
+
+  private parseKhaltiAmountInPaisa(value: string | number | undefined): number {
+    if (value === undefined || value === null) {
+      throw new BadRequestError("Khalti total_amount is required");
+    }
+
+    const numeric = typeof value === "number" ? value : Number(value);
+    if (!Number.isFinite(numeric) || numeric < 0) {
+      throw new BadRequestError("Khalti total_amount is invalid");
+    }
+
+    return Math.round(numeric);
   }
 }

@@ -17,6 +17,7 @@ export interface AuthUser {
   id: string;
   name: string;
   email: string;
+  image?: string | null;
   role: string;
 }
 
@@ -98,9 +99,12 @@ export const authEndpoints = {
     api.post<AuthResponse<{ message: string; verificationUrl?: string }>>("/api/auth/resend-verification", payload, config),
 
   // Profile endpoints
-  updateProfile: (payload: { name?: string }, config?: AxiosRequestConfig) =>
+  updateProfile: (payload: { name?: string; image?: string }, config?: AxiosRequestConfig) =>
     api.put<AuthResponse<AuthUser>>("/api/auth/profile", payload, config),
 
   exportData: (config?: AxiosRequestConfig) =>
     api.get<AuthResponse<Record<string, unknown>>>("/api/auth/export", config),
+
+  importData: (payload: { data: Record<string, unknown> }, config?: AxiosRequestConfig) =>
+    api.post<AuthResponse<{ message: string }>>("/api/auth/import", payload, config),
 };

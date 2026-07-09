@@ -14,6 +14,7 @@ export interface CartItemResponse {
   id: string;
   bookId: string;
   format: string | null;
+  unitPrice: number;
   quantity: number;
   createdAt: Date;
   book: CartBookSummary;
@@ -49,6 +50,7 @@ export interface CartRemoveItemResponse {
 export interface CartStatusResponse {
   bookId: string;
   inCart: boolean;
+  currentFormat?: string | null;
 }
 
 export interface ICartService {

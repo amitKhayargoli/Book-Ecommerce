@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { BACKEND_URL } from "@/lib/server-config";
 
-export async function POST() {
+export async function POST(request: Request) {
   const session = await auth();
 
   if (!session?.accessToken) {
@@ -13,11 +13,15 @@ export async function POST() {
   }
 
   try {
+    const body = await request.json();
+
     const response = await fetch(`${BACKEND_URL}/api/checkout/khalti/initiate`, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${session.accessToken}`,
+        "Content-Type": "application/json",
       },
+      body: JSON.stringify(body),
       cache: "no-store",
     });
 

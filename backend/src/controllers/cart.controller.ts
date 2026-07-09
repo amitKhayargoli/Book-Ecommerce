@@ -34,7 +34,8 @@ export class CartController {
   removeItem = async (req: Request, res: Response): Promise<void> => {
     const user = this.getAuthenticatedUser(req);
     const { bookId } = req.params as CartBookParamDto;
-    const data = await this.service.removeItem(user.id, bookId);
+    const format = typeof req.query.format === "string" ? req.query.format : undefined;
+    const data = await this.service.removeItem(user.id, bookId, format);
 
     sendSuccess(res, data, data.removed ? "Book removed from cart" : "Book was not in cart");
   };
