@@ -54,6 +54,8 @@ services:
       - DATABASE_URL=mongodb://mongo:27017/bookstore
       - NODE_ENV=${NODE_ENV:-development}
       - CORS_ORIGIN=http://localhost:3000
+      - FRONTEND_BASE_URL=http://localhost:3000
+      # SMTP settings are loaded from backend/.env via env_file above
     depends_on:
       mongo-init:
         condition: service_completed_successfully
