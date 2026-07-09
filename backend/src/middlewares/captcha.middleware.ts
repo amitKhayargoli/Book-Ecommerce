@@ -5,6 +5,12 @@ export async function captchaMiddleware(
   res: Response,
   next: NextFunction,
 ): Promise<void> {
+  // Skip CAPTCHA in development mode if no secret key is configured
+  if (process.env.NODE_ENV === "development" && !process.env.TURNSTILE_SECRET_KEY) {
+    next();
+    return;
+  }
+
   const token = req.body.captchaToken;
  
   if (!token) {

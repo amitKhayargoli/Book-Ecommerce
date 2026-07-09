@@ -5,7 +5,7 @@ import { User, Mail, Lock, ArrowRight, CheckCircle2 } from "lucide-react";
 import Link from "next/link";
 import { useState, useEffect, useRef } from "react";
 import { handleRegister } from "../actions/auth-action";
-import { signIn } from "@/auth";
+import { signIn } from "next-auth/react";
 import PasswordStrengthMeter from "../components/PasswordStrengthMeter";
 
 declare global {

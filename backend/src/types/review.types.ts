@@ -3,7 +3,7 @@ import { Request } from "express";
 import { ParamsDictionary } from "express-serve-static-core";
 import { ParsedQs } from "qs";
 import { PaginationMeta, normalizeImageUrl } from "../utils/response";
-import { CreateReviewDto, ReviewQueryDto } from "../dto/review.dto";
+import { CreateReviewDto, UpdateReviewDto, ReviewQueryDto } from "../dto/review.dto";
 
 // ═══════════════════════════════════════════════════════════════════
 //  SECTION 1 — PRISMA-DERIVED DOMAIN TYPES
@@ -85,6 +85,13 @@ export type GetReviewsRequest = Request<
   { id: string },
   unknown,
   unknown,
+  ParsedQs
+>;
+
+export type UpdateReviewRequest = Request<
+  { id: string; reviewId: string },
+  unknown,
+  UpdateReviewDto,
   ParsedQs
 >;
 

@@ -17,10 +17,10 @@ export const UpdateReviewSchema = z.object({
 export type UpdateReviewDto = z.infer<typeof UpdateReviewSchema>;
 
 export const ReviewQuerySchema = z.object({
-  page: z.coerce.number().min(1).default(1),
-  limit: z.coerce.number().min(1).max(100).default(10),
-  sortBy: z.enum(["createdAt", "rating"]).default("createdAt"),
-  sortOrder: z.enum(["asc", "desc"]).default("desc"),
+  page: z.coerce.number().min(1).catch(1),
+  limit: z.coerce.number().min(1).max(100).catch(10),
+  sortBy: z.enum(["createdAt", "rating"]).catch("createdAt"),
+  sortOrder: z.enum(["asc", "desc"]).catch("desc"),
 });
 
 export type ReviewQueryDto = z.infer<typeof ReviewQuerySchema>;

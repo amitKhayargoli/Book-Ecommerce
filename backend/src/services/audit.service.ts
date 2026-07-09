@@ -21,7 +21,9 @@ export type AuditEvent =
   | "email_verified"
   | "email_verification_resend"
   | "email_verification_failed"
-  | "profile_updated";
+  | "profile_updated"
+  | "address_imported"
+  | "orders_imported";
 
 export interface AuditContext {
   userId?: string;

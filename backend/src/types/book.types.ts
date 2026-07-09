@@ -59,7 +59,9 @@ export type BookRecord = Prisma.BookGetPayload<{
         };
       };
     };
-    // formatPrices intentionally omitted from select — see repository
+    formatPrices: {
+      select: { format: true, price: true };
+    };
     _count: {
       select: { reviews: true };
     };
@@ -283,7 +285,10 @@ export function toBookResponse(record: BookRecord): BookResponse {
     reviewCount: record._count.reviews,
     author: record.author,
     genres: record.bookGenres.map((bg) => bg.genre),
-    formatPrices: [],
+    formatPrices: record.formatPrices.map((fp) => ({
+      format: fp.format,
+      price: fp.price,
+    })),
     createdAt: record.createdAt,
     updatedAt: record.updatedAt,
   };
@@ -318,6 +323,9 @@ export function toBookSummary(record: BookRecord): BookSummary {
       color: bg.genre.color,
     })),
     reviewCount: record._count.reviews,
-    formatPrices: [],
+    formatPrices: record.formatPrices.map((fp) => ({
+      format: fp.format,
+      price: fp.price,
+    })),
   };
 }

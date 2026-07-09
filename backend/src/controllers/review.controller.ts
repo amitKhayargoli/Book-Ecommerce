@@ -2,7 +2,7 @@ import { Response } from "express";
 import { ReviewService } from "../services/review.service";
 import { CreateReviewDto, UpdateReviewDto, ReviewQuerySchema, ReviewQueryDto } from "../dto/review.dto";
 import { sendSuccess, sendPaginated } from "../utils/response";
-import { CreateReviewRequest, GetReviewsRequest } from "../types/review.types";
+import { CreateReviewRequest, GetReviewsRequest, UpdateReviewRequest } from "../types/review.types";
 
 export class ReviewController {
   private readonly service: ReviewService;
@@ -30,7 +30,7 @@ export class ReviewController {
   };
 
   // PUT /books/:id/reviews/:reviewId
-  updateReview = async (req: CreateReviewRequest, res: Response): Promise<void> => {
+  updateReview = async (req: UpdateReviewRequest, res: Response): Promise<void> => {
     const userId = (req as any).user?.id;
     if (!userId) {
       throw new Error("User unauthorized");
