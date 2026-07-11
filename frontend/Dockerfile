@@ -5,7 +5,7 @@ FROM node:20-slim AS deps
 
 WORKDIR /app
 
-# Skip Chromium download — puppeteer is only needed if using
+# Skip Chromium download - puppeteer is only needed if using
 # server-side PDF generation; system Chrome can be added later
 ENV PUPPETEER_SKIP_DOWNLOAD=true
 
@@ -13,7 +13,7 @@ COPY package*.json ./
 RUN npm install --legacy-peer-deps
 
 # ────────────────────────────────────────────────
-#  STAGE 2 : Development — hot-reload with next dev
+#  STAGE 2 : Development - hot-reload with next dev
 # ────────────────────────────────────────────────
 FROM deps AS development
 
@@ -29,7 +29,7 @@ EXPOSE 3000
 CMD ["npm", "run", "dev"]
 
 # ────────────────────────────────────────────────
-#  STAGE 3 : Build — compile Next.js + static assets
+#  STAGE 3 : Build - compile Next.js + static assets
 # ────────────────────────────────────────────────
 FROM node:20-slim AS build
 
@@ -49,7 +49,7 @@ COPY . .
 RUN npm run build
 
 # ────────────────────────────────────────────────
-#  STAGE 3 : Production — standalone runtime
+#  STAGE 3 : Production - standalone runtime
 # ────────────────────────────────────────────────
 FROM node:20-slim AS production
 

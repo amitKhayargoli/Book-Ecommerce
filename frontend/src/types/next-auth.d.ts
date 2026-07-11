@@ -8,6 +8,7 @@ declare module "next-auth" {
     user: DefaultSession["user"] & {
       id: string;
       role: string;
+      provider: string;
     };
   }
 
@@ -24,5 +25,6 @@ declare module "next-auth/jwt" {
     accessToken?: string;
     mfaRequired?: boolean;
     mfaToken?: string;
+    provider?: string;
   }
 }

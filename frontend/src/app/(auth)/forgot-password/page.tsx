@@ -101,7 +101,7 @@ export default function ForgotPasswordPage() {
               {success.resetUrl && (
                 <div className="bg-white/[0.03] border border-white/[0.06] rounded-xl p-4 text-left">
                   <p className="text-xs text-text-secondary/60 uppercase tracking-wider font-medium mb-2">
-                    Development mode — reset link
+                    Development mode - reset link
                   </p>
                   <a
                     href={success.resetUrl}

@@ -2,7 +2,7 @@
 
 import { FormEvent, useState, Suspense, useEffect, useRef } from "react";
 import Link from "next/link";
-import { signIn, useSession } from "next-auth/react";
+import { signIn, signOut, useSession } from "next-auth/react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { motion } from "framer-motion";
 import { Mail, Lock, ArrowRight, Loader2, Shield } from "lucide-react";
@@ -54,9 +54,41 @@ function LoginForm() {
   const [mfaRequired, setMfaRequired] = useState(false);
   const [mfaToken, setMfaToken] = useState<string | null>(null);
   const [totpCode, setTotpCode] = useState("");
+  const [useBackupCode, setUseBackupCode] = useState(false);
 
   const turnstileRef = useRef<HTMLDivElement>(null);
   const mfaFlagChecked = useRef(false);
+
+  // Check for expired-session redirect (from 401 interceptor or middleware)
+  const expired = params.get("expired");
+  const [sessionExpired, setSessionExpired] = useState(false);
+  const clearingSession = useRef(false);
+
+  // Check for MFA session expired redirect (from expired MFA challenge token)
+  const mfaExpired = params.get("mfa_expired");
+  const [mfaSessionExpired, setMfaSessionExpired] = useState(false);
+
+  useEffect(() => {
+    if (mfaExpired === "true") {
+      setMfaSessionExpired(true);
+    }
+  }, [mfaExpired]);
+
+  useEffect(() => {
+    if (expired !== "true" || clearingSession.current) return;
+
+    clearingSession.current = true;
+
+    // Always signOut to fully clear the stale NextAuth session cookie,
+    // even if accessToken is already undefined (the session JWT still exists
+    // and the authorized middleware will keep redirecting otherwise).
+    const clearStaleSession = async () => {
+      await signOut({ redirect: false });
+      setSessionExpired(true);
+    };
+
+    clearStaleSession();
+  }, [expired, session]);
 
   // Mark as mounted to avoid hydration mismatch
   useEffect(() => {
@@ -116,16 +148,29 @@ function LoginForm() {
         body: JSON.stringify({ email, password, captchaToken }),
       });
 
+      // ── Non-200 responses: parse the error message from the backend ──
+      if (!response.ok) {
+        let message = "Invalid email or password.";
+        try {
+          const errBody = await response.json();
+          if (errBody?.message) message = errBody.message;
+        } catch {
+          // Response body wasn't valid JSON - use default message
+        }
+
+        if (message.toLowerCase().includes("verify your email")) {
+          setEmailNotVerified(true);
+        }
+        setError(message);
+        setIsLoading(false);
+        return;
+      }
+
       const result = await response.json();
 
+      // ── success:false responses (shouldn't happen with 200, but just in case) ──
       if (!result.success) {
-        // Check if the error is about email verification
-        if (result.message && result.message.toLowerCase().includes("verify your email")) {
-          setEmailNotVerified(true);
-          setError(result.message);
-        } else {
-          setError(result.message || "Invalid email or password.");
-        }
+        setError(result.message || "Invalid email or password.");
         setIsLoading(false);
         return;
       }
@@ -138,7 +183,7 @@ function LoginForm() {
         return;
       }
 
-      // Normal login — create NextAuth session with the JWT
+      // Normal login - create NextAuth session with the JWT
       await completeLogin(result.data.accessToken);
     } catch {
       setError("Network error. Please try again.");
@@ -162,6 +207,11 @@ function LoginForm() {
       const result = await response.json();
 
       if (!result.success) {
+        // If the MFA challenge token expired, redirect back to login to start fresh
+        if (result.message?.toLowerCase().includes("mfa session expired")) {
+          router.push("/login?mfa_expired=true");
+          return;
+        }
         setError(result.message || "Invalid verification code.");
         setIsLoading(false);
         return;
@@ -187,7 +237,13 @@ function LoginForm() {
     setIsLoading(false);
 
     if (!result || result.error) {
-      setError("Failed to create session.");
+      // Try to surface the actual backend error by checking the session
+      // If the session exists but accessToken is missing, the token was rejected
+      setError(
+        result?.error === "CredentialsSignin"
+          ? "Your session could not be created. Please try signing in again."
+          : "Failed to create session. Please try again.",
+      );
       return;
     }
 
@@ -249,25 +305,82 @@ function LoginForm() {
             <form onSubmit={handleMfaSubmit} className="space-y-6">
               <div className="space-y-1.5">
                 <label className="text-sm font-medium text-text-secondary">
-                  Verification Code
-                </label>                  <input
-                    type="text"
-                    inputMode="text"
-                    autoComplete="one-time-code"
-                    maxLength={10}
-                    required
-                    value={totpCode}
-                    onChange={(e) => {
-                      const val = e.target.value.toUpperCase();
-                      // Allow 6-digit codes OR 10-character hex codes (backup codes)
+                  {useBackupCode ? "Backup Code" : "Verification Code"}
+                </label>
+                <input
+                  type="text"
+                  inputMode={useBackupCode ? "text" : "numeric"}
+                  autoComplete="one-time-code"
+                  maxLength={10}
+                  required
+                  value={totpCode}
+                  onChange={(e) => {
+                    const val = useBackupCode
+                      ? e.target.value.toUpperCase()
+                      : e.target.value.replace(/\D/g, "").slice(0, 6);
+                    if (useBackupCode) {
+                      // Allow 10-character hex backup codes
                       if (/^[0-9A-F]{0,10}$/.test(val)) {
                         setTotpCode(val);
                       }
-                    }}
-                    placeholder={totpCode.length <= 6 ? "000000" : "XXXXXXXXXX"}
-                    className="w-full bg-black/50 border border-white/[0.08] rounded-xl py-4 px-4 text-white text-center text-2xl tracking-[0.5em] font-mono placeholder:text-text-secondary/30 focus:outline-none focus:border-white/20 focus:ring-1 focus:ring-white/20 transition-all"
-                    disabled={isLoading}
-                  />
+                    } else {
+                      setTotpCode(val);
+                    }
+                  }}
+                  placeholder={useBackupCode ? "A1B2C3D4E5" : "000000"}
+                  className="w-full bg-black/50 border border-white/[0.08] rounded-xl py-4 px-4 text-white text-center text-2xl tracking-[0.5em] font-mono placeholder:text-text-secondary/30 focus:outline-none focus:border-white/20 focus:ring-1 focus:ring-white/20 transition-all"
+                  disabled={isLoading}
+                />
+
+                {/* Backup code hint when in TOTP mode */}
+                {!useBackupCode && (
+                  <div className="mt-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setUseBackupCode(true);
+                        setTotpCode("");
+                        setError(null);
+                      }}
+                      className="text-xs text-text-secondary hover:text-white transition-colors underline underline-offset-2"
+                    >
+                      Can't access your authenticator? Use a backup code →
+                    </button>
+                  </div>
+                )}
+
+                {/* Instructions when in backup code mode */}
+                {useBackupCode && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="mt-3 p-3 rounded-xl bg-amber-500/10 border border-amber-500/20"
+                  >
+                    <p className="text-[0.7rem] text-amber-300/90 leading-relaxed">
+                      Enter one of the 10 backup codes you received when setting up
+                      MFA. Each backup code can only be used once. Lost them?{" "}
+                      <span className="text-amber-300">Disable and re-enable MFA</span>{" "}
+                      from your security settings to generate new ones.
+                    </p>
+                  </motion.div>
+                )}
+
+                {/* Switch back to TOTP when in backup code mode */}
+                {useBackupCode && (
+                  <div className="mt-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setUseBackupCode(false);
+                        setTotpCode("");
+                        setError(null);
+                      }}
+                      className="text-xs text-text-secondary hover:text-white transition-colors underline underline-offset-2"
+                    >
+                      ← Use authenticator app instead
+                    </button>
+                  </div>
+                )}
               </div>
 
               {error && (
@@ -278,14 +391,14 @@ function LoginForm() {
 
               <button
                 type="submit"
-                disabled={isLoading || (totpCode.length !== 6 && totpCode.length !== 10)}
+                disabled={isLoading || (useBackupCode ? totpCode.length !== 10 : totpCode.length !== 6)}
                 className="w-full bg-white text-black font-semibold font-sans rounded-xl h-14 flex items-center justify-center group hover:bg-white/90 transition-all duration-300 disabled:opacity-50"
               >
                 {isLoading ? (
                   <Loader2 className="w-5 h-5 animate-spin" />
                 ) : (
                   <>
-                    Verify
+                    {useBackupCode ? "Verify Backup Code" : "Verify"}
                     <ArrowRight className="w-5 h-5 ml-2 group-hover:translate-x-1.5 transition-transform" strokeWidth={2} />
                   </>
                 )}
@@ -298,6 +411,7 @@ function LoginForm() {
                     setMfaRequired(false);
                     setMfaToken(null);
                     setTotpCode("");
+                    setUseBackupCode(false);
                   }}
                   className="text-sm text-text-secondary hover:text-white transition-colors"
                 >
@@ -436,13 +550,26 @@ function LoginForm() {
               </div>
             </div>
 
+            {/* MFA session expired banner */}
+            {mfaSessionExpired && (
+              <motion.div
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="p-4 rounded-xl bg-amber-500/10 border border-amber-500/20"
+              >
+                <p className="text-sm text-amber-300/90 font-medium text-center">
+                  Your MFA session expired. Please sign in again to receive a new verification code.
+                </p>
+              </motion.div>
+            )}
+
             {error && (
               <motion.p initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="text-sm text-red-400 mt-2">
                 {error}
               </motion.p>
             )}
 
-            {/* CAPTCHA — client-only to avoid hydration mismatch */}
+            {/* CAPTCHA - client-only to avoid hydration mismatch */}
             {mounted && (
               <div className="flex justify-center mt-4">
                 <div ref={turnstileRef} />

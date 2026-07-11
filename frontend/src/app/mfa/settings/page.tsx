@@ -19,6 +19,7 @@ import {
   RefreshCw,
   Eye,
   EyeOff,
+  Lock,
 } from "lucide-react";
 import { authEndpoints, MfaSetupResponse, BackupCodesResponse } from "@/lib/api/auth";
 
@@ -52,6 +53,11 @@ export default function MfaSettingsPage() {
   const [backupCodesVisible, setBackupCodesVisible] = useState(false);
   const [backupCodesLoading, setBackupCodesLoading] = useState(false);
   const [remainingBackupCodes, setRemainingBackupCodes] = useState<number | null>(null);
+
+  // Step-up auth (password re-entry for sensitive actions)
+  const [stepUpPassword, setStepUpPassword] = useState("");
+  const [stepUpLoading, setStepUpLoading] = useState(false);
+  const [stepUpAction, setStepUpAction] = useState<"regenerate" | null>(null);
 
   // Copy feedback
   const [copied, setCopied] = useState(false);
@@ -94,7 +100,7 @@ export default function MfaSettingsPage() {
         const callback = encodeURIComponent(window.location.pathname);
         router.push(`/login?mfa_pending=true&callbackUrl=${callback}`);
       } else {
-        // Session is authenticated but has no accessToken — something is wrong
+        // Session is authenticated but has no accessToken - something is wrong
         setPageState("error");
         setErrorMsg("Your session is incomplete. Please try signing in again.");
       }
@@ -278,7 +284,26 @@ export default function MfaSettingsPage() {
             <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent opacity-50" />
 
             {/* ───── MFA NOT ENABLED ───── */}
-            {(pageState === "idle") && (
+            {(session?.user?.provider === "GOOGLE") && (
+              <div className="flex items-start gap-4">
+                <div className="w-12 h-12 rounded-xl bg-white/5 flex items-center justify-center shrink-0">
+                  <Shield className="w-6 h-6 text-white/60" />
+                </div>
+                <div>
+                  <h2 className="text-lg font-semibold text-foreground mb-1">
+                    Two-Factor Authentication
+                  </h2>
+                  <p className="text-sm text-text-secondary leading-relaxed">
+                    You signed in with Google. Your account&apos;s two-factor
+                    authentication is managed by Google. Please visit your
+                    Google Account security settings to enable or change it.
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {/* ───── MFA NOT ENABLED (email/password users only) ───── */}
+            {(session?.user?.provider !== "GOOGLE" && pageState === "idle") && (
               <div className="space-y-6">
                 <div className="flex items-start gap-4">
                   <div className="w-12 h-12 rounded-xl bg-white/5 flex items-center justify-center shrink-0">
@@ -321,8 +346,8 @@ export default function MfaSettingsPage() {
               </div>
             )}
 
-            {/* ───── SETUP — QR CODE + VERIFY ───── */}
-            {(pageState === "setup" && setupData) && (
+            {/* ───── SETUP - QR CODE + VERIFY (email/password users only) ───── */}
+            {(session?.user?.provider !== "GOOGLE" && pageState === "setup" && setupData) && (
               <div className="space-y-6">
                 <div className="text-center">
                   <h2 className="text-lg font-semibold text-foreground mb-1">
@@ -437,8 +462,8 @@ export default function MfaSettingsPage() {
               </div>
             )}
 
-            {/* ───── MFA ENABLED ───── */}
-            {(pageState === "enabled") && (
+            {/* ───── MFA ENABLED (email/password users only) ───── */}
+            {(session?.user?.provider !== "GOOGLE" && pageState === "enabled") && (
               <div className="space-y-6">
                 <div className="flex items-center gap-4">
                   <div className="w-14 h-14 rounded-xl bg-emerald-500/15 flex items-center justify-center shrink-0">
@@ -473,7 +498,7 @@ export default function MfaSettingsPage() {
                       <AlertCircle className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />
                       <div>
                         <h3 className="text-sm font-semibold text-amber-300 mb-1">
-                          Backup Codes — Save These Immediately
+                          Backup Codes - Save These Immediately
                         </h3>
                         <p className="text-xs text-amber-400/70 leading-relaxed">
                           Each backup code can be used only once. If you lose your authenticator
@@ -543,46 +568,109 @@ export default function MfaSettingsPage() {
 
                 {/* ── Remaining Backup Codes / Regenerate ── */}
                 {remainingBackupCodes !== null && (
-                  <div className="flex items-center justify-between bg-white/[0.03] border border-white/[0.06] rounded-xl p-4">
-                    <div>
-                      <span className="text-sm text-text-secondary">
-                        Remaining backup codes:{" "}
-                        <span className="font-semibold text-foreground">{remainingBackupCodes}</span>
-                      </span>
-                      {remainingBackupCodes <= 3 && remainingBackupCodes > 0 && (
-                        <p className="text-xs text-amber-400/70 mt-1">
-                          Low! Consider regenerating new codes.
-                        </p>
+                  <div className="bg-white/[0.03] border border-white/[0.06] rounded-xl p-4 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <span className="text-sm text-text-secondary">
+                          Remaining backup codes:{" "}
+                          <span className="font-semibold text-foreground">{remainingBackupCodes}</span>
+                        </span>
+                        {remainingBackupCodes <= 3 && remainingBackupCodes > 0 && (
+                          <p className="text-xs text-amber-400/70 mt-1">
+                            Low! Consider regenerating new codes.
+                          </p>
+                        )}
+                      </div>
+                      {stepUpAction !== "regenerate" && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setStepUpAction("regenerate");
+                            setStepUpPassword("");
+                            setErrorMsg(null);
+                          }}
+                          className="flex items-center gap-1.5 text-xs font-medium text-white/70 hover:text-white transition-colors px-3 py-2 rounded-lg bg-white/5 hover:bg-white/10"
+                        >
+                          <RefreshCw className="w-3.5 h-3.5" />
+                          Regenerate
+                        </button>
                       )}
                     </div>
-                    <button
-                      type="button"
-                      onClick={async () => {
-                        if (!session?.accessToken) return;
-                        setBackupCodesLoading(true);
-                        setErrorMsg(null);
-                        try {
-                          const res = await authEndpoints.regenerateBackupCodes({
-                            headers: { Authorization: `Bearer ${session.accessToken}` },
-                          });
-                          if (res.data.success && res.data.data) {
-                            setBackupCodes(res.data.data.codes);
-                            setBackupCodesVisible(true);
-                            setRemainingBackupCodes(10);
-                            setSuccessMsg("New backup codes generated. Save them in a safe place!");
-                          }
-                        } catch {
-                          setErrorMsg("Failed to regenerate backup codes.");
-                        } finally {
-                          setBackupCodesLoading(false);
-                        }
-                      }}
-                      disabled={backupCodesLoading}
-                      className="flex items-center gap-1.5 text-xs font-medium text-white/70 hover:text-white transition-colors px-3 py-2 rounded-lg bg-white/5 hover:bg-white/10"
-                    >
-                      <RefreshCw className={`w-3.5 h-3.5 ${backupCodesLoading ? "animate-spin" : ""}`} />
-                      Regenerate
-                    </button>
+
+                    {/* Password re-entry for step-up auth */}
+                    {stepUpAction === "regenerate" && (
+                      <motion.div
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: "auto" }}
+                        exit={{ opacity: 0, height: 0 }}
+                        className="border-t border-white/[0.06] pt-3 space-y-3"
+                      >
+                        <div className="flex items-start gap-2">
+                          <Lock className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+                          <p className="text-xs text-text-secondary">
+                            For security, please re-enter your password to regenerate backup codes.
+                          </p>
+                        </div>
+                        <div className="flex gap-2">
+                          <input
+                            type="password"
+                            value={stepUpPassword}
+                            onChange={(e) => setStepUpPassword(e.target.value)}
+                            placeholder="Enter your password"
+                            className="flex-1 bg-black/50 border border-white/[0.08] rounded-xl py-2.5 px-4 text-sm text-white placeholder:text-white/30 focus:outline-none focus:border-white/20 transition-colors"
+                            disabled={stepUpLoading}
+                          />
+                          <button
+                            type="button"
+                            onClick={async () => {
+                              if (!session?.accessToken || !stepUpPassword) return;
+                              setStepUpLoading(true);
+                              setErrorMsg(null);
+                              try {
+                                const res = await authEndpoints.regenerateBackupCodes(
+                                  { password: stepUpPassword },
+                                  { headers: { Authorization: `Bearer ${session.accessToken}` } },
+                                );
+                                if (res.data.success && res.data.data) {
+                                  setBackupCodes(res.data.data.codes);
+                                  setBackupCodesVisible(true);
+                                  setRemainingBackupCodes(10);
+                                  setSuccessMsg("New backup codes generated. Save them in a safe place!");
+                                  setStepUpAction(null);
+                                  setStepUpPassword("");
+                                }
+                              } catch (err: unknown) {
+                                const msg =
+                                  (err as { response?: { data?: { message?: string } } })?.response?.data?.message
+                                  ?? "Failed to regenerate backup codes.";
+                                setErrorMsg(msg);
+                              } finally {
+                                setStepUpLoading(false);
+                              }
+                            }}
+                            disabled={stepUpLoading || !stepUpPassword}
+                            className="shrink-0 bg-white/10 hover:bg-white/15 text-white font-medium rounded-xl px-4 py-2.5 text-xs transition-all disabled:opacity-50"
+                          >
+                            {stepUpLoading ? (
+                              <Loader2 className="w-4 h-4 animate-spin" />
+                            ) : (
+                              "Confirm"
+                            )}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setStepUpAction(null);
+                              setStepUpPassword("");
+                            }}
+                            disabled={stepUpLoading}
+                            className="shrink-0 text-xs text-text-secondary hover:text-white transition-colors px-2"
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      </motion.div>
+                    )}
                   </div>
                 )}
 
@@ -598,8 +686,8 @@ export default function MfaSettingsPage() {
               </div>
             )}
 
-            {/* ───── DISABLING — TOTP CONFIRMATION ───── */}
-            {(pageState === "disabling") && (
+            {/* ───── DISABLING - TOTP CONFIRMATION (email/password users only) ───── */}
+            {(session?.user?.provider !== "GOOGLE" && pageState === "disabling") && (
               <div className="space-y-6">
                 <div className="flex items-center gap-4">
                   <div className="w-14 h-14 rounded-xl bg-red-500/10 flex items-center justify-center shrink-0">
@@ -668,8 +756,8 @@ export default function MfaSettingsPage() {
               </div>
             )}
 
-            {/* ───── ERROR STATE (initial fetch failure) ───── */}
-            {(pageState === "error") && (
+            {/* ───── ERROR STATE (email/password users only) ───── */}
+            {(session?.user?.provider !== "GOOGLE" && pageState === "error") && (
               <motion.div
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
