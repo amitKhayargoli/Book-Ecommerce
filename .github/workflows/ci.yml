@@ -44,12 +44,18 @@ jobs:
         run: npm test
 
       - name: Generate Prisma client
+        env:
+          DATABASE_URL: "mongodb://localhost:27017/test"
         run: npx prisma generate
 
       - name: Validate Prisma schema
+        env:
+          DATABASE_URL: "mongodb://localhost:27017/test"
         run: npx prisma validate
 
       - name: Check Prisma schema formatting
+        env:
+          DATABASE_URL: "mongodb://localhost:27017/test"
         run: npx prisma format --check
         continue-on-error: true
 
