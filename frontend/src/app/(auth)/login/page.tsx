@@ -344,7 +344,7 @@ function LoginForm() {
                       }}
                       className="text-xs text-text-secondary hover:text-white transition-colors underline underline-offset-2"
                     >
-                      Can't access your authenticator? Use a backup code →
+                      Can&apos;t access your authenticator? Use a backup code →
                     </button>
                   </div>
                 )}
