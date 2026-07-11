@@ -55,6 +55,7 @@ services:
       - NODE_ENV=${NODE_ENV:-development}
       - CORS_ORIGIN=http://localhost:3000
       - FRONTEND_BASE_URL=http://localhost:3000
+      - AUTH_GOOGLE_ID=983296584328-0ljv301ovl183i8togdf42ki4oof8i9f.apps.googleusercontent.com
       # SMTP settings are loaded from backend/.env via env_file above
     depends_on:
       mongo-init:

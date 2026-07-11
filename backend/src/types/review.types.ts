@@ -6,7 +6,7 @@ import { PaginationMeta, normalizeImageUrl } from "../utils/response";
 import { CreateReviewDto, UpdateReviewDto, ReviewQueryDto } from "../dto/review.dto";
 
 // ═══════════════════════════════════════════════════════════════════
-//  SECTION 1 — PRISMA-DERIVED DOMAIN TYPES
+//  SECTION 1 - PRISMA-DERIVED DOMAIN TYPES
 // ═══════════════════════════════════════════════════════════════════
 
 export const reviewSelect = {
@@ -26,7 +26,7 @@ export const reviewSelect = {
 export type ReviewRecord = Prisma.ReviewGetPayload<{ select: typeof reviewSelect }>;
 
 // ═══════════════════════════════════════════════════════════════════
-//  SECTION 2 — API RESPONSE SHAPES
+//  SECTION 2 - API RESPONSE SHAPES
 // ═══════════════════════════════════════════════════════════════════
 
 export interface ReviewResponse {
@@ -50,7 +50,7 @@ export interface PaginatedReviewsResponse {
 }
 
 // ═══════════════════════════════════════════════════════════════════
-//  SECTION 3 — SERVICE / REPOSITORY INTERFACES
+//  SECTION 3 - SERVICE / REPOSITORY INTERFACES
 // ═══════════════════════════════════════════════════════════════════
 
 export interface IReviewRepository {
@@ -71,7 +71,7 @@ export interface IReviewService {
 }
 
 // ═══════════════════════════════════════════════════════════════════
-//  SECTION 4 — REQUEST TYPES
+//  SECTION 4 - REQUEST TYPES
 // ═══════════════════════════════════════════════════════════════════
 
 export type CreateReviewRequest = Request<
@@ -96,7 +96,7 @@ export type UpdateReviewRequest = Request<
 >;
 
 // ═══════════════════════════════════════════════════════════════════
-//  SECTION 5 — UTILITY HELPERS
+//  SECTION 5 - UTILITY HELPERS
 // ═══════════════════════════════════════════════════════════════════
 
 export function toReviewResponse(record: ReviewRecord): ReviewResponse {

@@ -35,7 +35,7 @@ export async function authMiddleware(
     const payload = verifyAccessToken(token);
 
     // Verify token version against DB to invalidate tokens issued before password changes
-    // (fire-and-forget — fetching the user on every request is fast with indexed lookup)
+    // (fire-and-forget - fetching the user on every request is fast with indexed lookup)
     const user = await prisma.user.findUnique({
       where: { id: payload.id },
       select: { tokenVersion: true },

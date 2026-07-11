@@ -1,6 +1,7 @@
 import { Request, Response } from "express";
 import { AuthService } from "../services/auth.service";
 import {
+  ChangePasswordDto,
   ForgotPasswordDto,
   GoogleOAuthDto,
   LoginDto,
@@ -44,7 +45,7 @@ export class AuthController {
 
   register = async (req: Request, res: Response): Promise<void> => {
     const result = await this.service.register(req.body as RegisterDto, auditCtx(req));
-    // Registration no longer returns auth tokens — email verification required
+    // Registration no longer returns auth tokens - email verification required
     sendSuccess(res, result, result.message, 201);
   };
 
@@ -86,7 +87,8 @@ export class AuthController {
       res.status(401).json({ success: false, message: "Authentication required" });
       return;
     }
-    sendSuccess(res, this.service.me(user), "Profile fetched successfully");
+    const result = await this.service.me(user);
+    sendSuccess(res, result, "Profile fetched successfully");
   };
 
   updateProfile = async (req: Request, res: Response): Promise<void> => {
@@ -97,6 +99,16 @@ export class AuthController {
     }
     const result = await this.service.updateProfile(user.id, req.body, auditCtx(req));
     sendSuccess(res, result, "Profile updated successfully");
+  };
+
+  changePassword = async (req: Request, res: Response): Promise<void> => {
+    const user = (req as AuthenticatedRequest).user;
+    if (!user) {
+      res.status(401).json({ success: false, message: "Authentication required" });
+      return;
+    }
+    const result = await this.service.changePassword(user.id, req.body as ChangePasswordDto, auditCtx(req));
+    sendSuccess(res, result, result.message);
   };
 
   getOrders = async (req: Request, res: Response): Promise<void> => {
@@ -205,14 +217,15 @@ export class AuthController {
     sendSuccess(res, result, result.message);
   };
 
-  /** Regenerate backup codes (requires MFA to be enabled) */
+  /** Regenerate backup codes (requires password re-entry for step-up auth) */
   regenerateBackupCodes = async (req: Request, res: Response): Promise<void> => {
     const user = (req as AuthenticatedRequest).user;
     if (!user) {
       res.status(401).json({ success: false, message: "Authentication required" });
       return;
     }
-    const result = await this.service.regenerateBackupCodes(user.id, auditCtx(req));
+    const { password } = req.body as { password: string };
+    const result = await this.service.regenerateBackupCodes(user.id, password, auditCtx(req));
     sendSuccess(res, result, result.message);
   };
 

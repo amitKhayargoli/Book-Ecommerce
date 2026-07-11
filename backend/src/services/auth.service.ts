@@ -5,6 +5,7 @@ import bcrypt from "bcryptjs";
 import crypto from "crypto";
 import { ConflictError, NotFoundError, UnauthorizedError, TooManyRequestsError, BadRequestError } from "../utils/errors";
 import {
+  ChangePasswordDto,
   ForgotPasswordDto,
   GoogleOAuthDto,
   LoginDto,
@@ -30,6 +31,24 @@ import {
   VerifyEmailResponse,
 } from "../types/auth.types";
 import { signAccessToken, signMfaChallengeToken, verifyMfaChallengeToken } from "../utils/jwt";
+import { encrypt, decrypt } from "../utils/encryption";
+
+/**
+ * Safely retrieve the TOTP secret, handling both encrypted and
+ * legacy plain-text formats for backward compatibility.
+ */
+function getTotpSecret(stored: string | null): string {
+  if (!stored) return "";
+  // If it looks encrypted (contains colons from iv:authTag:ciphertext), decrypt it
+  if (stored.includes(":")) {
+    try {
+      return decrypt(stored);
+    } catch {
+      // Fall through to treat as plain text
+    }
+  }
+  return stored;
+}
 import { MfaService } from "./mfa.service";
 import { AuditService, AuditContext } from "./audit.service";
 import { MailService } from "./mail.service";
@@ -161,9 +180,9 @@ export class AuthService {
       throw new UnauthorizedError("Invalid email or password");
     }
 
-    // ─── Check email verification (skipped in dev for easier testing) ─
-    if (!user.emailVerified && process.env.NODE_ENV !== "development") {
-      throw new BadRequestError("Please verify your email before signing in. Check your inbox or request a new verification link.");
+    // ─── Check email verification ──────────────────────────────────────
+    if (!user.emailVerified) {
+      throw new BadRequestError("Please verify your email before signing in.");
     }
 
     // ─── Check password expiry ────────────────────────────────────────
@@ -223,7 +242,7 @@ export class AuthService {
       throw new UnauthorizedError("Invalid email or password");
     }
 
-    // ─── Successful password — reset failed attempt counter ──────────
+    // ─── Successful password - reset failed attempt counter ──────────
     if (!wasLockoutReset) {
       await prisma.user.update({
         where: { id: user.id },
@@ -261,7 +280,7 @@ export class AuthService {
     };
   }
 
-  async loginWithGoogle(dto: GoogleOAuthDto, auditCtx?: AuditContext, userAgentHash?: string): Promise<AuthTokensResponse> {
+  async loginWithGoogle(dto: GoogleOAuthDto, auditCtx?: AuditContext, userAgentHash?: string): Promise<LoginResult> {
     const normalizedEmail = dto.email.toLowerCase();
     // ─── Verify the Google ID token server-side ─────────────────────
     try {
@@ -291,10 +310,36 @@ export class AuthService {
         image: true,
         role: true,
         tokenVersion: true,
+        provider: true,
       },
     });
 
     if (existingUser) {
+      // Ensure the provider is set to GOOGLE (might have been EMAIL from initial registration)
+      if (existingUser.provider !== "GOOGLE") {
+        await prisma.user.update({
+          where: { id: existingUser.id },
+          data: {
+            provider: "GOOGLE",
+            // Google already verified this email during OAuth - trust it
+            emailVerified: new Date(),
+          },
+        });
+        existingUser.provider = "GOOGLE";
+
+        this.audit.log("account_linked", this.ctx({
+          userId: existingUser.id,
+          email: normalizedEmail,
+          ...auditCtx,
+          metadata: {
+            method: "google_oauth",
+            previousProvider: "EMAIL",
+            newProvider: "GOOGLE",
+          },
+        }));
+      }
+
+      // Google OAuth users skip app-level MFA - Google handles their own MFA
       this.audit.log("google_oauth_success", this.ctx({ userId: existingUser.id, email: normalizedEmail, ...auditCtx }));
       return this.buildAuthResponse(existingUser);
     }
@@ -308,6 +353,7 @@ export class AuthService {
         email: normalizedEmail,
         password: passwordHash,
         role: UserRole.CUSTOMER,
+        provider: "GOOGLE",
         // Google-verified emails are automatically trusted
         emailVerified: new Date(),
       },
@@ -1036,8 +1082,105 @@ export class AuthService {
     });
   }
 
-  me(user: AuthUserPayload): AuthUserPayload {
-    return user;
+  // ────────────────────────────────────────────────────────────────────
+  //  Change Password (Step-Up Authentication)
+  // ────────────────────────────────────────────────────────────────────
+
+  async changePassword(userId: string, dto: ChangePasswordDto, auditCtx?: AuditContext): Promise<{ message: string }> {
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { password: true },
+    });
+
+    if (!user) {
+      throw new NotFoundError("User");
+    }
+
+    // ─── Step-up: verify current password ───────────────────────────
+    const isCurrentValid = await bcrypt.compare(dto.currentPassword, user.password);
+    if (!isCurrentValid) {
+      this.audit.log("password_change_failed", this.ctx({ userId, ...auditCtx, metadata: { reason: "invalid_current_password" } }));
+      throw new UnauthorizedError("Current password is incorrect.");
+    }
+
+    // ─── Check new password is different from current ───────────────
+    const isSamePassword = await bcrypt.compare(dto.newPassword, user.password);
+    if (isSamePassword) {
+      throw new BadRequestError("New password must be different from your current password.");
+    }
+
+    // ─── Check password reuse history ───────────────────────────────
+    const recentHashes = await prisma.passwordHistory.findMany({
+      where: { userId },
+      orderBy: { createdAt: "desc" },
+      take: PASSWORD_HISTORY_LIMIT,
+    });
+
+    for (const entry of recentHashes) {
+      const isReused = await bcrypt.compare(dto.newPassword, entry.hash);
+      if (isReused) {
+        this.audit.log("password_change_failed", this.ctx({ userId, ...auditCtx, metadata: { reason: "password_reused" } }));
+        throw new BadRequestError(
+          "This password has been used recently. Please choose a different password.",
+        );
+      }
+    }
+
+    // ─── Update password ────────────────────────────────────────────
+    const passwordHash = await bcrypt.hash(dto.newPassword, SALT_ROUNDS);
+
+    await prisma.user.update({
+      where: { id: userId },
+      data: {
+        password: passwordHash,
+        tokenVersion: { increment: 1 },
+        passwordChangedAt: new Date(),
+        failedLoginAttempts: 0,
+        lockoutUntil: null,
+      },
+    });
+
+    // Save new hash to password history
+    await prisma.passwordHistory.create({
+      data: { userId, hash: passwordHash },
+    });
+
+    // Clean up old history entries beyond the limit
+    const allEntries = await prisma.passwordHistory.findMany({
+      where: { userId },
+      orderBy: { createdAt: "desc" },
+      skip: PASSWORD_HISTORY_LIMIT,
+    });
+    if (allEntries.length > 0) {
+      await prisma.passwordHistory.deleteMany({
+        where: { id: { in: allEntries.map((e) => e.id) } },
+      });
+    }
+
+    this.audit.log("password_changed", this.ctx({ userId, ...auditCtx }));
+
+    return { message: "Password changed successfully. Please sign in with your new password." };
+  }
+
+  async me(user: AuthUserPayload): Promise<AuthUserPayload> {
+    const dbUser = await prisma.user.findUnique({
+      where: { id: user.id },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        image: true,
+        role: true,
+        tokenVersion: true,
+        provider: true,
+      },
+    });
+
+    if (!dbUser) {
+      throw new NotFoundError("User");
+    }
+
+    return dbUser;
   }
 
   // ────────────────────────────────────────────────────────────────────
@@ -1046,7 +1189,16 @@ export class AuthService {
 
   /** Step 2 of login: verify TOTP or backup code after password check */
   async verifyMfaLogin(dto: MfaVerifyLoginDto, auditCtx?: AuditContext, userAgentHash?: string): Promise<AuthTokensResponse> {
-    const payload = verifyMfaChallengeToken(dto.mfaToken);
+    let payload: { id: string; email: string };
+    try {
+      payload = verifyMfaChallengeToken(dto.mfaToken);
+    } catch (err: unknown) {
+      // Catch JWT errors (expired token, invalid signature, etc.) and throw a clean 401
+      if (err instanceof Error && (err.name === 'TokenExpiredError' || err.name === 'JsonWebTokenError')) {
+        throw new UnauthorizedError('MFA session expired. Please sign in again.');
+      }
+      throw err;
+    }
 
     const user = await prisma.user.findUnique({
       where: { id: payload.id },
@@ -1076,8 +1228,8 @@ export class AuthService {
         throw new UnauthorizedError("Invalid backup code");
       }
     } else {
-      // TOTP verification
-      const valid = this.mfaService.verifyCode(user.totpSecret ?? "", dto.totpCode);
+      // TOTP verification (decrypt the secret first - handles legacy plain-text too)
+      const valid = this.mfaService.verifyCode(getTotpSecret(user.totpSecret), dto.totpCode);
       if (!valid) {
         this.audit.log("mfa_verify_failed", this.ctx({ userId: user.id, email: user.email, ...auditCtx, metadata: { method: "totp", reason: "invalid" } }));
         throw new UnauthorizedError("Invalid verification code");
@@ -1133,18 +1285,19 @@ export class AuthService {
       // Allow using a backup code to enable, or the correct TOTP
       const isBackup = this.mfaService.isBackupCode(dto.totpCode);
       if (!isBackup) {
-        const valid = this.mfaService.verifyCode(user.totpSecret!, dto.totpCode);
+        const valid = this.mfaService.verifyCode(getTotpSecret(user.totpSecret), dto.totpCode);
         if (!valid) {
           throw new UnauthorizedError("Invalid verification code");
         }
       }
     }
 
-    // Save the secret and enable MFA
+    // Save the encrypted secret and enable MFA
+    const encryptedSecret = encrypt(dto.secret);
     await prisma.user.update({
       where: { id: userId },
       data: {
-        totpSecret: dto.secret,
+        totpSecret: encryptedSecret,
         isMfaEnabled: true,
       },
     });
@@ -1181,7 +1334,8 @@ export class AuthService {
     if (isBackup) {
       valid = await this.mfaService.verifyAndConsumeBackupCode(userId, dto.totpCode);
     } else {
-      valid = this.mfaService.verifyCode(user.totpSecret ?? "", dto.totpCode);
+      // Decrypt the secret before verifying (handles legacy plain-text too)
+      valid = this.mfaService.verifyCode(getTotpSecret(user.totpSecret), dto.totpCode);
     }
 
     if (!valid) {
@@ -1208,7 +1362,22 @@ export class AuthService {
   //  Backup Code Methods
   // ────────────────────────────────────────────────────────────────────
 
-  async regenerateBackupCodes(userId: string, auditCtx?: AuditContext): Promise<BackupCodesResponse> {
+  async regenerateBackupCodes(userId: string, password: string, auditCtx?: AuditContext): Promise<BackupCodesResponse> {
+    // ─── Step-up: verify the user's password before allowing regeneration ──
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { password: true },
+    });
+
+    if (!user) {
+      throw new NotFoundError("User");
+    }
+
+    const isPasswordValid = await bcrypt.compare(password, user.password);
+    if (!isPasswordValid) {
+      throw new UnauthorizedError("Invalid password. Please try again.");
+    }
+
     const codes = await this.mfaService.generateBackupCodes(userId);
 
     this.audit.log("mfa_backup_codes_regenerated", this.ctx({ userId, ...auditCtx, metadata: { count: codes.length } }));
