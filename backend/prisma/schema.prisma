@@ -25,6 +25,8 @@ model User {
 
   emailVerified DateTime?
 
+  provider      String  @default("EMAIL")
+
   totpSecret    String? @default("")
   isMfaEnabled  Boolean @default(false)
   tokenVersion         Int       @default(0)

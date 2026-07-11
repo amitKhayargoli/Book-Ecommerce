@@ -3,7 +3,7 @@ import rateLimit from "express-rate-limit";
 import { AuthController } from "../controllers/auth.controller";
 import { validate } from "../middlewares/validate.middleware";
 import { asyncHandler } from "../middlewares/asyncHandler";
-import { ForgotPasswordSchema, GoogleOAuthSchema, LoginSchema, MfaDisableSchema, MfaEnableSchema, MfaSetupSchema, MfaVerifyLoginSchema, RegenerateBackupCodesSchema, RegisterSchema, ResendVerificationSchema, ResetPasswordSchema, UpdateProfileSchema, ImportDataSchema } from "../dto/auth.dto";
+import { ChangePasswordSchema, ForgotPasswordSchema, GoogleOAuthSchema, LoginSchema, MfaDisableSchema, MfaEnableSchema, MfaSetupSchema, MfaVerifyLoginSchema, RegenerateBackupCodesSchema, RegisterSchema, ResendVerificationSchema, ResetPasswordSchema, UpdateProfileSchema, ImportDataSchema } from "../dto/auth.dto";
 import { authMiddleware } from "../middlewares/auth.middleware";
 import { adminMiddleware } from "../middlewares/admin.middleware";
 import { captchaMiddleware } from "../middlewares/captcha.middleware";
@@ -106,6 +106,20 @@ router.post("/reset-password", resetPasswordLimiter, validate(ResetPasswordSchem
 
 // ─── Admin Routes ──────────────────────────────────────────────────
 router.put("/profile", authMiddleware, validate(UpdateProfileSchema), asyncHandler(controller.updateProfile));
+
+// Rate-limited to prevent brute-force on the current password
+const changePasswordLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: {
+    success: false,
+    message: "Too many password change attempts. Try again after 15 minutes.",
+  },
+});
+
+router.put("/change-password", authMiddleware, changePasswordLimiter, validate(ChangePasswordSchema), asyncHandler(controller.changePassword));
 
 router.get("/orders", authMiddleware, asyncHandler(controller.getOrders));
 

@@ -57,7 +57,7 @@ function buildMockUser(overrides: Record<string, unknown> = {}) {
   };
 }
 
-describe("AuthService — Lockout Logic", () => {
+describe("AuthService - Lockout Logic", () => {
   let service: AuthService;
 
   beforeEach(() => {
@@ -95,7 +95,7 @@ describe("AuthService — Lockout Logic", () => {
     expect(prismaMock.user.update).not.toHaveBeenCalled();
   });
 
-  // ─── Lockout expired — resets counter then proceeds ───────────
+  // ─── Lockout expired - resets counter then proceeds ───────────
   it("should reset failed attempts when lockout has expired and allow login with correct password", async () => {
     const pastLock = new Date(Date.now() - 60_000);
     const mockUser = buildMockUser({

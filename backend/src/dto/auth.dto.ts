@@ -75,7 +75,9 @@ export const MfaDisableSchema = z.object({
   totpCode: totpOrBackupCode,
 });
 
-export const RegenerateBackupCodesSchema = z.object({});
+export const RegenerateBackupCodesSchema = z.object({
+  password: z.string().min(1, "Password is required to regenerate backup codes"),
+});
 
 // ─── Password Reset Schemas ────────────────────────────────────────────
 
@@ -149,4 +151,42 @@ export const ImportDataSchema = z.object({
 });
 
 export type ImportDataDto = z.infer<typeof ImportDataSchema>;
+
+// ─── Change Password Schema ────────────────────────────────────────────
+
+export const ChangePasswordSchema = z.object({
+  currentPassword: z.string().min(1, "Current password is required"),
+  newPassword: z
+    .string()
+    .min(8, "Password must be at least 8 characters")
+    .max(72, "Password is too long")
+    .superRefine((val, ctx) => {
+      if (!/[A-Z]/.test(val)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "Must contain at least one uppercase letter",
+        });
+      }
+      if (!/[a-z]/.test(val)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "Must contain at least one lowercase letter",
+        });
+      }
+      if (!/\d/.test(val)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "Must contain at least one number",
+        });
+      }
+      if (!/[!@#$%^&*(),.?":{}|<>_\-~`]/.test(val)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "Must contain at least one special character",
+        });
+      }
+    }),
+});
+
+export type ChangePasswordDto = z.infer<typeof ChangePasswordSchema>;
 

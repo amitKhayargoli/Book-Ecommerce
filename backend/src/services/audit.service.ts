@@ -7,6 +7,7 @@ export type AuditEvent =
   | "login_locked"
   | "login_account_locked"
   | "google_oauth_success"
+  | "account_linked"
   | "mfa_challenge_issued"
   | "mfa_verify_success"
   | "mfa_verify_failed"
@@ -23,7 +24,9 @@ export type AuditEvent =
   | "email_verification_failed"
   | "profile_updated"
   | "address_imported"
-  | "orders_imported";
+  | "orders_imported"
+  | "password_change_failed"
+  | "password_changed";
 
 export interface AuditContext {
   userId?: string;
@@ -36,7 +39,7 @@ export interface AuditContext {
 export class AuditService {
   /**
    * Write a structured audit log entry.
-   * Fire-and-forget — errors are swallowed so logging never breaks auth flows.
+   * Fire-and-forget - errors are swallowed so logging never breaks auth flows.
    */
   async log(event: AuditEvent, ctx: AuditContext): Promise<void> {
     try {

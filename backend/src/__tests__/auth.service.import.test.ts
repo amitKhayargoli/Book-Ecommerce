@@ -107,7 +107,7 @@ function makeExportedOrder(overrides: Record<string, unknown> = {}): Record<stri
   };
 }
 
-describe("AuthService — importData", () => {
+describe("AuthService - importData", () => {
   let service: AuthService;
 
   beforeEach(() => {

@@ -6,7 +6,7 @@ import { PaginationMeta, normalizeImageUrl } from "../utils/response";
 import { CreateBookDto, UpdateBookDto, BookQueryDto } from "../dto/book.dto";
 
 // ═══════════════════════════════════════════════════════════════════
-//  SECTION 1 — PRISMA-DERIVED DOMAIN TYPES
+//  SECTION 1 - PRISMA-DERIVED DOMAIN TYPES
 //  These are inferred directly from the Prisma select shape so they
 //  never drift from the actual DB schema.
 // ═══════════════════════════════════════════════════════════════════
@@ -29,7 +29,7 @@ export type BookGenreTag = {
 
 /**
  * The full Book domain object returned by the repository.
- * Derived from Prisma's type system — single source of truth.
+ * Derived from Prisma's type system - single source of truth.
  */
 export type BookRecord = Prisma.BookGetPayload<{
   select: {
@@ -69,7 +69,7 @@ export type BookRecord = Prisma.BookGetPayload<{
 }>;
 
 // ═══════════════════════════════════════════════════════════════════
-//  SECTION 2 — API RESPONSE SHAPES
+//  SECTION 2 - API RESPONSE SHAPES
 //  What the controller actually sends back to the client.
 //  Flattened/transformed from BookRecord for clean JSON.
 // ═══════════════════════════════════════════════════════════════════
@@ -113,13 +113,13 @@ export interface BookResponse {
   updatedAt: Date;
 }
 
-/** Response for list endpoints — data + pagination meta */
+/** Response for list endpoints - data + pagination meta */
 export interface PaginatedBooksResponse {
   books: BookResponse[];
   meta: PaginationMeta;
 }
 
-/** Lightweight book card — used in featured/trending/author lists */
+/** Lightweight book card - used in featured/trending/author lists */
 export interface BookSummary {
   id: string;
   title: string;
@@ -140,8 +140,8 @@ export interface BookSummary {
 }
 
 // ═══════════════════════════════════════════════════════════════════
-//  SECTION 3 — SERVICE LAYER INTERFACES
-//  Contract the service exposes — decouples controller from impl.
+//  SECTION 3 - SERVICE LAYER INTERFACES
+//  Contract the service exposes - decouples controller from impl.
 // ═══════════════════════════════════════════════════════════════════
 
 export interface IBookService {
@@ -159,8 +159,8 @@ export interface IBookService {
 }
 
 // ═══════════════════════════════════════════════════════════════════
-//  SECTION 4 — REPOSITORY LAYER INTERFACES
-//  Contract the repository exposes — makes it swappable/mockable.
+//  SECTION 4 - REPOSITORY LAYER INTERFACES
+//  Contract the repository exposes - makes it swappable/mockable.
 // ═══════════════════════════════════════════════════════════════════
 
 export interface FindManyResult {
@@ -183,7 +183,7 @@ export interface IBookRepository {
 }
 
 // ═══════════════════════════════════════════════════════════════════
-//  SECTION 5 — TYPED EXPRESS REQUEST EXTENSIONS
+//  SECTION 5 - TYPED EXPRESS REQUEST EXTENSIONS
 //
 //  The correct pattern is to use Request<Params, ResBody, ReqBody, Query>
 //  generics rather than extending and overriding individual properties.
@@ -209,7 +209,7 @@ export type UpdateBookRequest = Request<
   ParsedQs
 >;
 
-// Query carries raw strings — validate() middleware coerces them to BookQueryDto
+// Query carries raw strings - validate() middleware coerces them to BookQueryDto
 // Use `req.query as unknown as BookQueryDto` after middleware runs
 export type GetBooksRequest = Request<
   ParamsDictionary,
@@ -239,9 +239,9 @@ export type BooksByAuthorRequest = Request<
 >;
 
 // ═══════════════════════════════════════════════════════════════════
-//  SECTION 6 — SORT / FILTER ENUMS
+//  SECTION 6 - SORT / FILTER ENUMS
 //  Centralised so the DTO, service, and consumers all use the same
-//  values — no magic strings scattered across the codebase.
+//  values - no magic strings scattered across the codebase.
 // ═══════════════════════════════════════════════════════════════════
 
 export const BOOK_SORT_FIELDS = [
@@ -256,7 +256,7 @@ export const SORT_ORDERS = ["asc", "desc"] as const;
 export type SortOrder = (typeof SORT_ORDERS)[number];
 
 // ═══════════════════════════════════════════════════════════════════
-//  SECTION 7 — UTILITY / TRANSFORMER HELPERS
+//  SECTION 7 - UTILITY / TRANSFORMER HELPERS
 //  Pure functions that convert BookRecord → response shapes.
 //  Keep them here so controller and service share the same logic.
 // ═══════════════════════════════════════════════════════════════════

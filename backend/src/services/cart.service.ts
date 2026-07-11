@@ -44,7 +44,7 @@ export class CartService implements ICartService {
           added: false,
         };
       }
-      // Different format — remove old one first, then add the new one
+      // Different format - remove old one first, then add the new one
       await this.repo.removeItem(cart.id, bookId);
       // Fall through to createItem below
     }

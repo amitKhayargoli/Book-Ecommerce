@@ -1,5 +1,5 @@
 # ────────────────────────────────────────────────
-#  STAGE 1 : Deps — install ALL dependencies
+#  STAGE 1 : Deps - install ALL dependencies
 # ────────────────────────────────────────────────
 FROM node:20-slim AS deps
 
@@ -9,7 +9,7 @@ COPY package*.json ./
 RUN npm ci
 
 # ────────────────────────────────────────────────
-#  STAGE 2 : Development — hot-reload with ts-node
+#  STAGE 2 : Development - hot-reload with ts-node
 # ────────────────────────────────────────────────
 FROM deps AS development
 
@@ -21,10 +21,10 @@ RUN npx prisma generate
 
 EXPOSE 3001
 
-CMD ["npm", "run", "dev"]
+CMD npx prisma generate && npm run dev
 
 # ────────────────────────────────────────────────
-#  STAGE 3 : Build — compile TypeScript
+#  STAGE 3 : Build - compile TypeScript
 # ────────────────────────────────────────────────
 FROM deps AS build
 
@@ -34,13 +34,13 @@ COPY . .
 RUN npx prisma generate && npm run build
 
 # ────────────────────────────────────────────────
-#  STAGE 4 : Production — minimal runtime image
+#  STAGE 4 : Production - minimal runtime image
 # ────────────────────────────────────────────────
 FROM node:20-slim AS production
 
 WORKDIR /app
 
-# Install only production deps — uses the lockfile for reproducible builds
+# Install only production deps - uses the lockfile for reproducible builds
 COPY package*.json ./
 RUN npm ci --omit=dev
 

@@ -82,7 +82,7 @@ async function ensureMongoRunning(): Promise<void> {
   try {
     await access(MONGO_DATA_DIR);
   } catch {
-    // Directory doesn't exist — create it (including parents)
+    // Directory doesn't exist - create it (including parents)
     await mkdir(MONGO_DATA_DIR, { recursive: true });
     console.log(`Created MongoDB data directory: ${MONGO_DATA_DIR}`);
   }
@@ -148,11 +148,27 @@ async function ensureMongoRunning(): Promise<void> {
 async function bootstrap() {
   try {
     if (process.env.NODE_ENV !== "production") {
-      await ensureMongoRunning();
+      // If DATABASE_URL points to a remote host (not localhost/127.0.0.1),
+      // skip the local mongod auto-start - MongoDB is handled externally
+      // (e.g. by the book-mongo Docker container).
+      const dbUrl = process.env.DATABASE_URL ?? "";
+      const isLocalMongo =
+        dbUrl.includes("localhost") || dbUrl.includes("127.0.0.1");
+      if (isLocalMongo) {
+        await ensureMongoRunning();
+      } else {
+        console.log("Skipping local MongoDB start - using external MongoDB.");
+      }
     }
 
     await prisma.$connect();
     console.log("Database connected");
+
+    // ─── Data migration: update provider for existing Google OAuth users ──
+    // Users who signed up via Google before the provider column existed have
+    // provider="EMAIL" (the default). Detect them by checking if their password
+    // is NOT a bcrypt hash (Google generates random alphanumeric passwords).
+    await migrateGoogleProvider();
 
     app.listen(PORT, () => {
       console.log(`Server running on http://localhost:${PORT}`);
@@ -170,5 +186,40 @@ process.on("SIGTERM", async () => {
   await prisma.$disconnect();
   process.exit(0);
 });
+
+/**
+ * Update provider to "GOOGLE" for existing users who signed up via Google
+ * but still have the default "EMAIL" provider (from before the column was added).
+ *
+ * Detection: Google OAuth users have a random 16-char alphanumeric password
+ * (from Math.random().toString(36).slice(-16)), which does NOT start with "$2".
+ * Bcrypt hashes always start with "$2a$", "$2b$", or "$2y$".
+ */
+async function migrateGoogleProvider(): Promise<void> {
+  try {
+    const users = await prisma.user.findMany({
+      where: { provider: "EMAIL" },
+      select: { id: true, password: true },
+    });
+
+    let updated = 0;
+    for (const user of users) {
+      // Bcrypt hashes start with "$2" - if it doesn't, it's likely a Google-generated password
+      if (!user.password.startsWith("$2")) {
+        await prisma.user.update({
+          where: { id: user.id },
+          data: { provider: "GOOGLE" },
+        });
+        updated++;
+      }
+    }
+
+    if (updated > 0) {
+      console.log(`[Migration] Updated ${updated} existing Google OAuth user(s) to provider="GOOGLE"`);
+    }
+  } catch (err) {
+    console.error("[Migration] Failed to update Google providers:", err);
+  }
+}
 
 bootstrap();
