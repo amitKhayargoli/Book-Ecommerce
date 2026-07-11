@@ -37,6 +37,13 @@ router.get(
   asyncHandler(controller.getIpAccessRules),
 );
 
+router.get(
+  "/ip-rules/sessions",
+  authMiddleware,
+  adminMiddleware,
+  asyncHandler(controller.getRecentSessions),
+);
+
 router.post(
   "/ip-rules",
   authMiddleware,
@@ -56,6 +63,29 @@ router.delete(
   authMiddleware,
   adminMiddleware,
   asyncHandler(controller.deleteIpAccessRule),
+);
+
+// ─── User Management ────────────────────────────────────────────────
+
+router.get(
+  "/users",
+  authMiddleware,
+  adminMiddleware,
+  asyncHandler(controller.getUsers),
+);
+
+router.delete(
+  "/users/:id",
+  authMiddleware,
+  adminMiddleware,
+  asyncHandler(controller.deleteUser),
+);
+
+router.patch(
+  "/users/:id/role",
+  authMiddleware,
+  adminMiddleware,
+  asyncHandler(controller.updateUserRole),
 );
 
 export default router;

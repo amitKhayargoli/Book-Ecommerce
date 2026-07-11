@@ -6,6 +6,12 @@ import { AuditService } from "../services/audit.service";
 
 type AuthenticatedRequest = Request & { user?: AuthUserPayload };
 
+/** Strip IPv4-mapped IPv6 prefix (::ffff:) for clean display. */
+function normalizeIp(ip: string): string {
+  if (ip.startsWith("::ffff:")) return ip.slice(7);
+  return ip;
+}
+
 const audit = new AuditService();
 
 const LOW_STOCK_THRESHOLD = 5;
@@ -188,7 +194,7 @@ export class AdminController {
     const draftPublishCandidates = draftBooks.map((book) => ({
       id: `task-draft-${book.id}`,
       title: book.title,
-      description: "Draft — missing publishedAt",
+      description: "Draft - missing publishedAt",
       type: "draftPublishCandidate" as const,
       severity: "medium" as const,
       href: "/admin/books",
@@ -241,9 +247,9 @@ export class AdminController {
         type,
         title: log.event.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()),
         description: log.email
-          ? `${log.email} · ${log.ip ?? "unknown ip"}`
+          ? `${log.email} · ${normalizeIp(log.ip ?? "unknown ip")}`
           : log.ip
-            ? `IP: ${log.ip}`
+            ? `IP: ${normalizeIp(log.ip)}`
             : "System event",
         timestamp,
       };
@@ -562,6 +568,85 @@ export class AdminController {
   };
 
   /** Delete an IP access rule. */
+  /** Get recent unique sessions (IP + device) from audit logs. */
+  getRecentSessions = async (req: Request, res: Response): Promise<void> => {
+    const limit = Math.min(100, Math.max(1, parseInt(req.query.limit as string) || 50));
+
+    // Fetch the most recent audit log entries that have IP info
+    const logs = await prisma.auditLog.findMany({
+      where: {
+        ip: { not: null },
+      },
+      select: {
+        ip: true,
+        userAgent: true,
+        email: true,
+        userId: true,
+        event: true,
+        createdAt: true,
+      },
+      orderBy: { createdAt: "desc" },
+      take: 1000,
+    });
+
+    // Group by unique ip + userAgent combination
+    const sessionMap = new Map<
+      string,
+      {
+        ip: string;
+        userAgent: string;
+        email: string | null;
+        userId: string | null;
+        lastSeen: Date;
+        firstSeen: Date;
+        events: number;
+      }
+    >();
+
+    for (const log of logs) {
+      if (!log.ip) continue;
+      const cleanIp = normalizeIp(log.ip!);
+      const key = `${cleanIp}|${log.userAgent ?? ""}`;
+
+      if (!sessionMap.has(key)) {
+        sessionMap.set(key, {
+          ip: cleanIp,
+          userAgent: log.userAgent ?? "",
+          email: log.email ?? null,
+          userId: log.userId ?? null,
+          lastSeen: log.createdAt,
+          firstSeen: log.createdAt,
+          events: 1,
+        });
+      } else {
+        const existing = sessionMap.get(key)!;
+        existing.events++;
+        if (log.createdAt > existing.lastSeen) {
+          existing.lastSeen = log.createdAt;
+          if (log.email) existing.email = log.email;
+          if (log.userId) existing.userId = log.userId;
+        }
+        if (log.createdAt < existing.firstSeen) {
+          existing.firstSeen = log.createdAt;
+        }
+      }
+    }
+
+    // Sort by lastSeen desc, limit results
+    const sessions = Array.from(sessionMap.values())
+      .sort((a, b) => b.lastSeen.getTime() - a.lastSeen.getTime())
+      .slice(0, limit);
+
+    res.status(200).json({
+      success: true,
+      data: sessions,
+      meta: {
+        total: sessionMap.size,
+        returned: sessions.length,
+      },
+    });
+  };
+
   deleteIpAccessRule = async (req: Request, res: Response): Promise<void> => {
     const id = req.params.id as string;
 
@@ -605,6 +690,166 @@ export class AdminController {
     res.status(200).json({
       message: `Order status updated to ${status}`,
       order: updated,
+    });
+  };
+
+  // ─── User Management ───────────────────────────────────────────────
+
+  /** List all users with pagination and search. */
+  getUsers = async (req: Request, res: Response): Promise<void> => {
+    const page = Math.max(1, parseInt(req.query.page as string) || 1);
+    const limit = Math.min(100, Math.max(1, parseInt(req.query.limit as string) || 50));
+    const search = String(req.query.search || "");
+
+    const where: Record<string, unknown> = {};
+
+    if (search) {
+      where.OR = [
+        { name: { contains: search, mode: "insensitive" } },
+        { email: { contains: search, mode: "insensitive" } },
+        { id: { contains: search, mode: "insensitive" } },
+      ] as any;
+    }
+
+    const [users, total] = await Promise.all([
+      prisma.user.findMany({
+        where: where as any,
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          image: true,
+          role: true,
+          provider: true,
+          isMfaEnabled: true,
+          emailVerified: true,
+          createdAt: true,
+          updatedAt: true,
+          _count: {
+            select: {
+              orders: true,
+              reviews: true,
+              addresses: true,
+            },
+          },
+        },
+        orderBy: { createdAt: "desc" },
+        skip: (page - 1) * limit,
+        take: limit,
+      }),
+      prisma.user.count({ where: where as any }),
+    ]);
+
+    res.status(200).json({
+      success: true,
+      data: users,
+      meta: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+        hasNextPage: page < Math.ceil(total / limit),
+        hasPrevPage: page > 1,
+      },
+    });
+  };
+
+  /** Delete a user and all their related records. */
+  deleteUser = async (req: Request, res: Response): Promise<void> => {
+    const id = req.params.id as string;
+
+    const user = await prisma.user.findUnique({ where: { id } });
+    if (!user) {
+      throw new NotFoundError("User");
+    }
+
+    // Don't allow admins to delete themselves
+    const currentUser = (req as AuthenticatedRequest).user;
+    if (currentUser?.id === id) {
+      throw new BadRequestError("You cannot delete your own account. Use the profile settings instead.");
+    }
+
+    // Delete related records in order to avoid foreign key issues
+    // Run sequentially (not in a transaction) for MongoDB compatibility
+    await prisma.cartItem.deleteMany({ where: { cart: { userId: id } } });
+    await prisma.cart.deleteMany({ where: { userId: id } });
+
+    await prisma.orderItem.deleteMany({ where: { order: { userId: id } } });
+    await prisma.order.deleteMany({ where: { userId: id } });
+
+    await prisma.review.deleteMany({ where: { userId: id } });
+
+    await prisma.wishlistItem.deleteMany({ where: { wishlist: { userId: id } } });
+    await prisma.wishlist.deleteMany({ where: { userId: id } });
+
+    await prisma.address.deleteMany({ where: { userId: id } });
+
+    await prisma.passwordResetToken.deleteMany({ where: { userId: id } });
+    await prisma.verificationToken.deleteMany({ where: { userId: id } });
+    await prisma.backupCode.deleteMany({ where: { userId: id } });
+    await prisma.passwordHistory.deleteMany({ where: { userId: id } });
+
+    // Finally delete the user
+    await prisma.user.delete({ where: { id } });
+
+    await audit.log("profile_updated", {
+      userId: currentUser?.id,
+      metadata: {
+        action: "delete_user",
+        targetUserId: id,
+        targetEmail: user.email,
+      },
+      ip: req.ip ?? undefined,
+      userAgent: typeof req.headers["user-agent"] === "string" ? req.headers["user-agent"] : undefined,
+    });
+
+    res.status(200).json({
+      success: true,
+      message: `User ${user.email} and all related data deleted successfully`,
+    });
+  };
+
+  /** Update a user's role (CUSTOMER ↔ ADMIN). */
+  updateUserRole = async (req: Request, res: Response): Promise<void> => {
+    const id = req.params.id as string;
+    const { role } = req.body as { role: string };
+
+    const validRoles = ["CUSTOMER", "ADMIN"];
+    if (!role || !validRoles.includes(role)) {
+      throw new BadRequestError("Invalid role. Must be CUSTOMER or ADMIN");
+    }
+
+    const user = await prisma.user.findUnique({ where: { id } });
+    if (!user) {
+      throw new NotFoundError("User");
+    }
+
+    const updated = await prisma.user.update({
+      where: { id },
+      data: { role: role as any },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        role: true,
+      },
+    });
+
+    await audit.log("profile_updated", {
+      userId: (req as AuthenticatedRequest).user?.id,
+      metadata: {
+        action: "update_user_role",
+        targetUserId: id,
+        targetEmail: user.email,
+        oldRole: user.role,
+        newRole: role,
+      },
+    });
+
+    res.status(200).json({
+      success: true,
+      data: updated,
+      message: `User role updated to ${role}`,
     });
   };
 }

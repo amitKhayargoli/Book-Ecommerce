@@ -13,6 +13,7 @@ const adminLinks = [
   { label: "Orders", href: "/admin/orders" },
   { label: "Audit Logs", href: "/admin/audit-logs" },
   { label: "IP Access", href: "/admin/ip-access" },
+  { label: "Sessions", href: "/admin/sessions" },
 ];
 
 const navLeft = ["Books", "Writers"];
@@ -42,7 +43,7 @@ export default function Navbar() {
       }`}
     >
       <nav className="max-w-[1400px] mx-auto px-6 md:px-10 h-16 flex items-center justify-between">
-        {/* Left nav — show admin links or user links based on current page */}
+        {/* Left nav - show admin links or user links based on current page */}
         <div className="hidden md:flex items-center gap-8">
           {isAdminPage
             ? adminLinks.map((link) => {
