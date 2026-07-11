@@ -85,7 +85,7 @@ export default function SignupPage() {
       return;
     }
 
-    // Show verification-pending state — registration no longer auto-logs in
+    // Show verification-pending state - registration no longer auto-logs in
     setRegistered({
       message: registerResult.data?.message || "Account created! Please check your email to verify.",
       verificationUrl: registerResult.data?.verificationUrl,
@@ -124,7 +124,7 @@ export default function SignupPage() {
             {registered.verificationUrl && (
               <div className="bg-white/[0.03] border border-white/[0.06] rounded-xl p-4 text-left mb-6">
                 <p className="text-xs text-text-secondary/60 uppercase tracking-wider font-medium mb-2">
-                  Development mode — verification link
+                  Development mode - verification link
                 </p>
                 <a
                   href={registered.verificationUrl}
@@ -308,7 +308,7 @@ export default function SignupPage() {
               </motion.p>
             )}
 
-            {/* CAPTCHA — client-only to avoid hydration mismatch */}
+            {/* CAPTCHA - client-only to avoid hydration mismatch */}
             {mounted && (
               <div className="flex justify-center mt-4">
                 <div ref={turnstileRef} />

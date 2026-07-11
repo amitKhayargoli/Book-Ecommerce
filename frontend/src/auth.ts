@@ -47,6 +47,7 @@ const providers = [
           id: profilePayload.data.id,
           name: profilePayload.data.name,
           email: profilePayload.data.email,
+          image: (profilePayload.data as { image?: string | null }).image ?? null,
           role: profilePayload.data.role,
           accessToken: preVerifiedToken,
         };
@@ -104,6 +105,7 @@ const providers = [
         id: payload.data.user.id,
         name: payload.data.user.name,
         email: payload.data.user.email,
+        image: (payload.data.user as { image?: string | null }).image ?? null,
         role: payload.data.user.role,
         accessToken: payload.data.accessToken,
       };
@@ -144,6 +146,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     jwt: async ({ token, user, account }) => {
       if (user) {
         token.id = user.id;
+        token.name = user.name;
+        token.picture = (user as { image?: string | null }).image ?? null;
         token.role = (user as { role?: string }).role ?? "CUSTOMER";
         token.accessToken = (user as { accessToken?: string }).accessToken;
       }
@@ -181,7 +185,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             };
 
             if (payload.data?.mfaRequired && payload.data?.mfaToken) {
-              // MFA is required — store the challenge token, don't set accessToken
+              // MFA is required - store the challenge token, don't set accessToken
               console.log(`[NextAuth] Google OAuth: MFA required for ${token.email}`);
               token.mfaRequired = true;
               token.mfaToken = payload.data.mfaToken;
@@ -194,6 +198,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
               token.accessToken = payload.data.accessToken;
               token.mfaRequired = undefined;
               token.mfaToken = undefined;
+              token.provider = "GOOGLE";
             } else {
               console.error(
                 `[NextAuth] Google OAuth: Backend rejected the token for ${token.email}`,
@@ -232,12 +237,18 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
               success: boolean;
               data?: {
                 id: string;
+                name: string;
+                image?: string | null;
                 role: string;
+                provider?: string;
               };
             };
 
             if (payload.success && payload.data) {
               token.role = payload.data.role;
+              token.name = payload.data.name;
+              token.picture = payload.data.image ?? null;
+              token.provider = payload.data.provider ?? "EMAIL";
             } else {
               console.warn(
                 `[NextAuth] Profile refresh: Backend returned success=false for user ${token.email ?? token.id}`,
@@ -245,9 +256,12 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
               );
             }
           } else {
+            // Token expired or invalid - clear it so the session becomes invalid
+            // The 401 interceptor in api-client.ts will handle client-side redirects
             console.warn(
-              `[NextAuth] Profile refresh: Backend returned ${response.status} for user ${token.email ?? token.id}`,
+              `[NextAuth] Profile refresh: Backend returned ${response.status} for user ${token.email ?? token.id} - clearing expired token`,
             );
+            token.accessToken = undefined;
           }
         } catch (err) {
           console.warn(
@@ -264,7 +278,10 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     session: async ({ session, token }) => {
       if (session.user) {
         session.user.id = (token.id as string) ?? "";
+        session.user.name = (token.name as string) ?? session.user.name;
+        session.user.image = (token.picture as string | null | undefined) ?? session.user.image;
         session.user.role = (token.role as string) ?? "";
+        session.user.provider = (token.provider as string) ?? "EMAIL";
       }
       session.accessToken = token.accessToken as string | undefined;
       session.mfaRequired = token.mfaRequired as boolean | undefined;
@@ -275,13 +292,43 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       const pathname = request.nextUrl.pathname;
 
       // If MFA is pending (Google OAuth with MFA enabled), redirect to login
+      // If MFA is pending (Google OAuth with MFA enabled), redirect to login
       if (authState?.mfaRequired && pathname !== "/login") {
         const callback = encodeURIComponent(pathname);
         return Response.redirect(new URL(`/login?mfa_pending=true&callbackUrl=${callback}`, request.url));
       }
 
+      // If the user's session has no accessToken (expired), redirect to login
+      // Only redirect for protected pages that actually need authentication,
+      // so public pages (homepage, books, etc.) remain accessible.
+      const protectedPaths = [
+        "/cart",
+        "/checkout",
+        "/orders",
+        "/profile",
+        "/addresses",
+        "/wishlist",
+        "/mfa",
+        "/admin",
+      ];
+      const isProtectedPath = protectedPaths.some((p) => pathname.startsWith(p));
+
+      if (
+        !authState?.accessToken &&
+        authState?.user &&
+        isProtectedPath
+      ) {
+        return Response.redirect(new URL("/login?expired=true", request.url));
+      }
+
       if (pathname.startsWith("/admin")) {
-        return authState?.user?.role === "ADMIN";
+        // Not logged in → let NextAuth redirect to /login
+        if (!authState?.user) return false;
+        // Logged in but not admin → send to homepage instead of confusing login page
+        if (authState.user.role !== "ADMIN") {
+          return Response.redirect(new URL("/", request.url));
+        }
+        return true; // is admin
       }
       return true;
     },

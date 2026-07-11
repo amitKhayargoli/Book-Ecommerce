@@ -18,6 +18,7 @@ import {
   EyeOff,
   Copy,
   RefreshCw,
+  Lock,
   Save,
   Mail,
   Camera,
@@ -67,6 +68,11 @@ export default function ProfilePage() {
   const [remainingBackupCodes, setRemainingBackupCodes] = useState<number | null>(null);
   const [copied, setCopied] = useState(false);
   const [allCopied, setAllCopied] = useState(false);
+
+  // ── Step-up auth state ──────────────────────────────────────────
+  const [stepUpPassword, setStepUpPassword] = useState("");
+  const [stepUpLoading, setStepUpLoading] = useState(false);
+  const [stepUpAction, setStepUpAction] = useState<string | null>(null);
 
   // Redirect to login if not authenticated
   useEffect(() => {
@@ -436,7 +442,7 @@ export default function ProfilePage() {
                     <div className="flex items-center gap-3 bg-white/[0.03] border border-white/[0.06] rounded-xl px-4 py-3.5">
                       <Mail className="w-5 h-5 text-white/40" />
                       <span className="text-white/60 text-sm">
-                        {session?.user?.email || "—"}
+                        {session?.user?.email || "-"}
                       </span>
                     </div>
                     <p className="text-xs text-text-secondary/50 mt-1.5">
@@ -461,7 +467,7 @@ export default function ProfilePage() {
                   {/* Save button */}
                   <button
                     onClick={handleSaveProfile}
-                    disabled={profileSaving || !profileName.trim() || profileName === session?.user?.name}
+                    disabled={profileSaving || !profileName.trim() || (profileName === session?.user?.name && profileImage === (session?.user?.image ?? null))}
                     className="w-full bg-white text-black font-semibold font-sans rounded-xl h-12 flex items-center justify-center gap-2 group hover:bg-white/90 transition-all duration-300 disabled:opacity-50"
                   >
                     {profileSaving ? (
@@ -474,13 +480,32 @@ export default function ProfilePage() {
                     )}
                   </button>
 
+                  {/* ── Change Password ──────────────────────────── */}
+                  <div className="pt-4 border-t border-white/[0.06]">
+                    <div className="flex items-start gap-4 mb-4">
+                      <div className="w-12 h-12 rounded-xl bg-white/5 flex items-center justify-center shrink-0">
+                        <Lock className="w-6 h-6 text-white/60" />
+                      </div>
+                      <div>
+                        <h2 className="text-lg font-semibold text-foreground mb-1">
+                          Change Password
+                        </h2>
+                        <p className="text-sm text-text-secondary leading-relaxed">
+                          Update your password. You&apos;ll be signed out of all devices after changing it.
+                        </p>
+                      </div>
+                    </div>
+
+                    <ChangePasswordSection accessToken={session?.accessToken ?? ""} />
+                  </div>
+
                   {/* Role */}
                   <div className="bg-white/[0.03] border border-white/[0.06] rounded-xl p-4 flex items-center gap-3">
                     <Shield className="w-5 h-5 text-white/40 shrink-0" />
                     <div>
                       <p className="text-xs text-text-secondary">Role</p>
                       <p className="text-sm text-white font-medium capitalize">
-                        {session?.user?.role?.toLowerCase() || "—"}
+                        {session?.user?.role?.toLowerCase() || "-"}
                       </p>
                     </div>
                   </div>
@@ -519,8 +544,27 @@ export default function ProfilePage() {
               <div className="bg-black/40 backdrop-blur-[40px] border border-white/[0.08] rounded-[2rem] p-8 md:p-10 shadow-[0_8px_32px_rgba(0,0,0,0.4)] relative overflow-hidden">
                 <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent opacity-50" />
 
+                {/* Google OAuth users - MFA is managed by Google */}
+                {session?.user?.provider === "GOOGLE" && (
+                  <div className="flex items-start gap-4">
+                    <div className="w-12 h-12 rounded-xl bg-white/5 flex items-center justify-center shrink-0">
+                      <Shield className="w-6 h-6 text-white/60" />
+                    </div>
+                    <div>
+                      <h2 className="text-lg font-semibold text-foreground mb-1">
+                        Two-Factor Authentication
+                      </h2>
+                      <p className="text-sm text-text-secondary leading-relaxed">
+                        You signed in with Google. Your account&apos;s two-factor
+                        authentication is managed by Google. Enable or change it
+                        in your Google Account security settings.
+                      </p>
+                    </div>
+                  </div>
+                )}
+
                 {/* MFA loading skeleton */}
-                {(mfaState === "loading") && (
+                {(session?.user?.provider !== "GOOGLE" && mfaState === "loading") && (
                   <div className="space-y-6">
                     <div className="flex items-start gap-4">
                       <div className="w-12 h-12 rounded-xl bg-white/10 animate-pulse shrink-0" />
@@ -534,8 +578,8 @@ export default function ProfilePage() {
                   </div>
                 )}
 
-                {/* ───── MFA NOT ENABLED ───── */}
-                {(mfaState === "idle") && (
+                {/* ───── MFA NOT ENABLED (email/password users only) ───── */}
+                {(session?.user?.provider !== "GOOGLE" && mfaState === "idle") && (
                   <div className="space-y-6">
                     <div className="flex items-start gap-4">
                       <div className="w-12 h-12 rounded-xl bg-white/5 flex items-center justify-center shrink-0">
@@ -578,8 +622,8 @@ export default function ProfilePage() {
                   </div>
                 )}
 
-                {/* ───── SETUP — QR CODE + VERIFY ───── */}
-                {(mfaState === "setup" && setupData) && (
+                {/* ───── SETUP - QR CODE + VERIFY (email/password users only) ───── */}
+                {(session?.user?.provider !== "GOOGLE" && mfaState === "setup" && setupData) && (
                   <div className="space-y-6">
                     <div className="text-center">
                       <h2 className="text-lg font-semibold text-foreground mb-1">
@@ -685,8 +729,8 @@ export default function ProfilePage() {
                   </div>
                 )}
 
-                {/* ───── MFA ENABLED ───── */}
-                {(mfaState === "enabled") && (
+                {/* ───── MFA ENABLED (email/password users only) ───── */}
+                {(session?.user?.provider !== "GOOGLE" && mfaState === "enabled") && (
                   <div className="space-y-6">
                     <div className="flex items-center gap-4">
                       <div className="w-14 h-14 rounded-xl bg-emerald-500/15 flex items-center justify-center shrink-0">
@@ -720,7 +764,7 @@ export default function ProfilePage() {
                           <AlertCircle className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />
                           <div>
                             <h3 className="text-sm font-semibold text-amber-300 mb-1">
-                              Backup Codes — Save These Immediately
+                              Backup Codes - Save These Immediately
                             </h3>
                             <p className="text-xs text-amber-400/70 leading-relaxed">
                               Each backup code can be used only once. If you lose your authenticator
@@ -802,34 +846,83 @@ export default function ProfilePage() {
                             </p>
                           )}
                         </div>
-                        <button
-                          type="button"
-                          onClick={async () => {
-                            if (!session?.accessToken) return;
-                            setBackupCodesLoading(true);
-                            setMfaError(null);
-                            try {
-                              const res = await authEndpoints.regenerateBackupCodes({
-                                headers: { Authorization: `Bearer ${session.accessToken}` },
-                              });
-                              if (res.data.success && res.data.data) {
-                                setBackupCodes(res.data.data.codes);
-                                setBackupCodesVisible(true);
-                                setRemainingBackupCodes(10);
-                                setMfaSuccess("New backup codes generated. Save them in a safe place!");
-                              }
-                            } catch {
-                              setMfaError("Failed to regenerate backup codes.");
-                            } finally {
-                              setBackupCodesLoading(false);
-                            }
-                          }}
-                          disabled={backupCodesLoading}
-                          className="flex items-center gap-1.5 text-xs font-medium text-white/70 hover:text-white transition-colors px-3 py-2 rounded-lg bg-white/5 hover:bg-white/10"
-                        >
-                          <RefreshCw className={`w-3.5 h-3.5 ${backupCodesLoading ? "animate-spin" : ""}`} />
-                          Regenerate
-                        </button>
+                        {/* Step-up password prompt */}
+                        {stepUpAction === "regenerate-backup-codes" ? (
+                          <div className="flex flex-col gap-2">
+                            <div className="flex items-center gap-2">
+                              <Lock className="w-3.5 h-3.5 text-amber-400" />
+                              <span className="text-xs text-amber-300/80">Confirm password to regenerate backup codes</span>
+                            </div>
+                            <div className="flex gap-2">
+                              <input
+                                type="password"
+                                value={stepUpPassword}
+                                onChange={(e) => setStepUpPassword(e.target.value)}
+                                placeholder="Enter password"
+                                className="flex-1 bg-black/50 border border-white/[0.08] rounded-lg px-3 py-1.5 text-xs text-white placeholder:text-white/20 focus:outline-none focus:border-white/20"
+                                disabled={stepUpLoading}
+                              />
+                              <button
+                                type="button"
+                                onClick={async () => {
+                                  if (!session?.accessToken || !stepUpPassword) return;
+                                  setStepUpLoading(true);
+                                  setMfaError(null);
+                                  try {
+                                    const res = await authEndpoints.regenerateBackupCodes(
+                                      { password: stepUpPassword },
+                                      { headers: { Authorization: `Bearer ${session.accessToken}` } },
+                                    );
+                                    if (res.data.success && res.data.data) {
+                                      setBackupCodes(res.data.data.codes);
+                                      setBackupCodesVisible(true);
+                                      setRemainingBackupCodes(10);
+                                      setMfaSuccess("New backup codes generated. Save them in a safe place!");
+                                      setStepUpAction(null);
+                                      setStepUpPassword("");
+                                    } else {
+                                      setMfaError(res.data.message || "Invalid password.");
+                                    }
+                                  } catch {
+                                    setMfaError("Failed to regenerate backup codes.");
+                                  } finally {
+                                    setStepUpLoading(false);
+                                  }
+                                }}
+                                disabled={stepUpLoading || !stepUpPassword.trim()}
+                                className="flex items-center gap-1 text-xs font-medium text-amber-300 hover:text-amber-200 transition-colors px-3 py-1.5 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 disabled:opacity-50"
+                              >
+                                {stepUpLoading ? (
+                                  <Loader2 className="w-3 h-3 animate-spin" />
+                                ) : (
+                                  "Confirm"
+                                )}
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setStepUpAction(null);
+                                  setStepUpPassword("");
+                                }}
+                                className="text-xs text-white/40 hover:text-white/70 transition-colors px-2"
+                              >
+                                Cancel
+                              </button>
+                            </div>
+                            {mfaError && (
+                              <p className="text-xs text-red-400">{mfaError}</p>
+                            )}
+                          </div>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => setStepUpAction("regenerate-backup-codes")}
+                            className="flex items-center gap-1.5 text-xs font-medium text-white/70 hover:text-white transition-colors px-3 py-2 rounded-lg bg-white/5 hover:bg-white/10"
+                          >
+                            <RefreshCw className="w-3.5 h-3.5" />
+                            Regenerate
+                          </button>
+                        )}
                       </div>
                     )}
 
@@ -845,8 +938,8 @@ export default function ProfilePage() {
                   </div>
                 )}
 
-                {/* ───── DISABLING — TOTP CONFIRMATION ───── */}
-                {(mfaState === "disabling") && (
+                {/* ───── DISABLING - TOTP CONFIRMATION (email/password users only) ───── */}
+                {(session?.user?.provider !== "GOOGLE" && mfaState === "disabling") && (
                   <div className="space-y-6">
                     <div className="flex items-center gap-4">
                       <div className="w-14 h-14 rounded-xl bg-red-500/10 flex items-center justify-center shrink-0">
@@ -915,8 +1008,8 @@ export default function ProfilePage() {
                   </div>
                 )}
 
-                {/* ───── ERROR STATE ───── */}
-                {(mfaState === "error") && (
+                {/* ───── ERROR STATE (email/password users only) ───── */}
+                {(session?.user?.provider !== "GOOGLE" && mfaState === "error") && (
                   <motion.div
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
@@ -976,6 +1069,231 @@ export default function ProfilePage() {
         </AnimatePresence>
       </div>
     </main>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  Change Password Section Component
+// ═══════════════════════════════════════════════════════════════════
+
+function ChangePasswordSection({ accessToken }: { accessToken: string }) {
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
+  const [showForm, setShowForm] = useState(false);
+
+  const handleChangePassword = async () => {
+    if (!accessToken) return;
+
+    // Client-side validation
+    if (newPassword !== confirmPassword) {
+      setError("New passwords do not match.");
+      return;
+    }
+
+    if (newPassword.length < 8) {
+      setError("New password must be at least 8 characters.");
+      return;
+    }
+
+    if (currentPassword === newPassword) {
+      setError("New password must be different from your current password.");
+      return;
+    }
+
+    setIsLoading(true);
+    setError(null);
+    setSuccess(null);
+
+    try {
+      const res = await authEndpoints.changePassword(
+        { currentPassword, newPassword },
+        { headers: { Authorization: `Bearer ${accessToken}` } },
+      );
+      if (res.data.success) {
+        setSuccess("Password changed! Please sign in again with your new password.");
+        setCurrentPassword("");
+        setNewPassword("");
+        setConfirmPassword("");
+        setShowForm(false);
+      } else {
+        setError(res.data.message || "Failed to change password.");
+      }
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
+      setError(msg || "Network error. Please try again.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Clear success message after 6 seconds
+  useEffect(() => {
+    if (!success) return;
+    const t = setTimeout(() => setSuccess(null), 6000);
+    return () => clearTimeout(t);
+  }, [success]);
+
+  // Password strength indicator
+  const getStrength = (pwd: string): { label: string; color: string; width: string } => {
+    if (!pwd) return { label: "", color: "", width: "0%" };
+    let score = 0;
+    if (pwd.length >= 8) score++;
+    if (/[A-Z]/.test(pwd)) score++;
+    if (/[a-z]/.test(pwd)) score++;
+    if (/\d/.test(pwd)) score++;
+    if (/[!@#$%^&*(),.?":{}|<>_\-~`]/.test(pwd)) score++;
+    const levels = [
+      { label: "Weak", color: "bg-red-500", width: "20%" },
+      { label: "Fair", color: "bg-orange-500", width: "40%" },
+      { label: "Good", color: "bg-yellow-500", width: "60%" },
+      { label: "Strong", color: "bg-lime-500", width: "80%" },
+      { label: "Very Strong", color: "bg-emerald-500", width: "100%" },
+    ];
+    return levels[Math.min(score, 5) - 1] ?? levels[0];
+  };
+
+  const strength = getStrength(newPassword);
+
+  if (!showForm) {
+    return (
+      <div>
+        <button
+          onClick={() => {
+            setShowForm(true);
+            setError(null);
+            setSuccess(null);
+          }}
+          className="bg-white/5 hover:bg-white/10 border border-white/[0.08] rounded-xl h-12 px-6 flex items-center justify-center gap-2 text-sm font-medium text-white/70 hover:text-white transition-all duration-300"
+        >
+          <Lock className="w-4 h-4" />
+          Change Password
+        </button>
+        <AnimatePresence>
+          {success && (
+            <motion.p
+              initial={{ opacity: 0, y: -5 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -5 }}
+              className="mt-3 text-xs flex items-center gap-1.5 text-emerald-400"
+            >
+              <CheckCircle2 className="w-3.5 h-3.5" />
+              {success}
+            </motion.p>
+          )}
+        </AnimatePresence>
+      </div>
+    );
+  }
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, height: 0 }}
+      animate={{ opacity: 1, height: "auto" }}
+      exit={{ opacity: 0, height: 0 }}
+      className="space-y-4"
+    >
+      <div>
+        <label className="block text-xs font-medium text-text-secondary mb-2 uppercase tracking-wider">
+          Current Password
+        </label>
+        <input
+          type="password"
+          value={currentPassword}
+          onChange={(e) => setCurrentPassword(e.target.value)}
+          placeholder="Enter current password"
+          className="w-full bg-black/50 border border-white/[0.08] rounded-xl py-3 px-4 text-white text-sm placeholder:text-white/20 focus:outline-none focus:border-white/20 focus:ring-1 focus:ring-white/20 transition-all"
+          disabled={isLoading}
+        />
+      </div>
+
+      <div>
+        <label className="block text-xs font-medium text-text-secondary mb-2 uppercase tracking-wider">
+          New Password
+        </label>
+        <input
+          type="password"
+          value={newPassword}
+          onChange={(e) => setNewPassword(e.target.value)}
+          placeholder="Enter new password"
+          className="w-full bg-black/50 border border-white/[0.08] rounded-xl py-3 px-4 text-white text-sm placeholder:text-white/20 focus:outline-none focus:border-white/20 focus:ring-1 focus:ring-white/20 transition-all"
+          disabled={isLoading}
+        />
+        {newPassword && (
+          <div className="mt-2">
+            <div className="h-1.5 bg-white/10 rounded-full overflow-hidden">
+              <motion.div
+                initial={{ width: 0 }}
+                animate={{ width: strength.width }}
+                className={`h-full rounded-full transition-colors ${strength.color}`}
+              />
+            </div>
+            <p className="text-[0.65rem] text-text-secondary mt-1">
+              {strength.label}
+            </p>
+          </div>
+        )}
+      </div>
+
+      <div>
+        <label className="block text-xs font-medium text-text-secondary mb-2 uppercase tracking-wider">
+          Confirm New Password
+        </label>
+        <input
+          type="password"
+          value={confirmPassword}
+          onChange={(e) => setConfirmPassword(e.target.value)}
+          placeholder="Re-enter new password"
+          className="w-full bg-black/50 border border-white/[0.08] rounded-xl py-3 px-4 text-white text-sm placeholder:text-white/20 focus:outline-none focus:border-white/20 focus:ring-1 focus:ring-white/20 transition-all"
+          disabled={isLoading}
+        />
+      </div>
+
+      {/* Error */}
+      {error && (
+        <motion.p
+          initial={{ opacity: 0, y: -5 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="text-xs flex items-center gap-1.5 text-red-400"
+        >
+          <AlertCircle className="w-3.5 h-3.5" />
+          {error}
+        </motion.p>
+      )}
+
+      <div className="flex gap-3">
+        <button
+          onClick={handleChangePassword}
+          disabled={isLoading || !currentPassword || !newPassword || !confirmPassword}
+          className="flex-1 bg-white text-black font-semibold font-sans rounded-xl h-12 flex items-center justify-center gap-2 hover:bg-white/90 transition-all duration-300 disabled:opacity-50 text-sm"
+        >
+          {isLoading ? (
+            <Loader2 className="w-4 h-4 animate-spin" />
+          ) : (
+            <>
+              <Save className="w-4 h-4" />
+              Update Password
+            </>
+          )}
+        </button>
+        <button
+          onClick={() => {
+            setShowForm(false);
+            setCurrentPassword("");
+            setNewPassword("");
+            setConfirmPassword("");
+            setError(null);
+          }}
+          disabled={isLoading}
+          className="bg-white/5 hover:bg-white/10 border border-white/[0.08] rounded-xl h-12 px-5 flex items-center justify-center text-sm font-medium text-white/60 hover:text-white transition-all duration-300"
+        >
+          Cancel
+        </button>
+      </div>
+    </motion.div>
   );
 }
 

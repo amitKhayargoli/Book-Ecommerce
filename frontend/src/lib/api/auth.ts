@@ -85,8 +85,8 @@ export const authEndpoints = {
     api.post<AuthResponse<{ message: string }>>("/api/auth/mfa/disable", payload, config),
 
   // Backup code endpoints
-  regenerateBackupCodes: (config?: AxiosRequestConfig) =>
-    api.post<AuthResponse<BackupCodesResponse>>("/api/auth/mfa/backup-codes/regenerate", {}, config),
+  regenerateBackupCodes: (payload: { password: string }, config?: AxiosRequestConfig) =>
+    api.post<AuthResponse<BackupCodesResponse>>("/api/auth/mfa/backup-codes/regenerate", payload, config),
 
   backupCodesStatus: (config?: AxiosRequestConfig) =>
     api.get<AuthResponse<BackupCodesStatusResponse>>("/api/auth/mfa/backup-codes/status", config),
@@ -107,4 +107,8 @@ export const authEndpoints = {
 
   importData: (payload: { data: Record<string, unknown> }, config?: AxiosRequestConfig) =>
     api.post<AuthResponse<{ message: string }>>("/api/auth/import", payload, config),
+
+  // Change password
+  changePassword: (payload: { currentPassword: string; newPassword: string }, config?: AxiosRequestConfig) =>
+    api.put<AuthResponse<{ message: string }>>("/api/auth/change-password", payload, config),
 };

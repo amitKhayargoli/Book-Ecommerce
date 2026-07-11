@@ -20,3 +20,17 @@ export const api = axios.create({
     return searchParams.toString();
   },
 });
+
+// ─── 401 Interceptor: redirect to login when token expires ───────────
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response?.status === 401 && typeof window !== "undefined") {
+      // Avoid redirect loops - only redirect if not already on the login page
+      if (!window.location.pathname.startsWith("/login")) {
+        window.location.href = "/login?expired=true";
+      }
+    }
+    return Promise.reject(error);
+  },
+);
