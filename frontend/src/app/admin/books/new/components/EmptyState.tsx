@@ -20,7 +20,7 @@ export function EmptyState({ isSearch }: EmptyStateProps) {
           <SearchX className="w-10 h-10 text-slate-500 mb-4" />
           <h3 className="text-slate-300 font-medium mb-1">No results found</h3>
           <p className="text-sm text-slate-500">
-            We couldn't find any books matching your query. Try a different search term.
+            We couldn&apos;t find any books matching your query. Try a different search term.
           </p>
         </>
       )}

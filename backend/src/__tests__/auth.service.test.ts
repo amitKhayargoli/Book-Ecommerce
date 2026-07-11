@@ -51,6 +51,7 @@ function buildMockUser(overrides: Record<string, unknown> = {}) {
     email: TEST_EMAIL,
     password: bcrypt.hashSync(VALID_PASSWORD, 4),
     role: "CUSTOMER",
+    emailVerified: new Date(),
     failedLoginAttempts: 0,
     lockoutUntil: null,
     ...overrides,
