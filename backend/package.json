@@ -22,8 +22,10 @@
     "dev": "nodemon --watch src --ext ts --exec tsx src/server.ts",
     "build": "tsc",
     "start": "node dist/server.ts",
+    "typecheck": "tsc --noEmit",
     "test": "jest",
-    "test:watch": "jest --watch"
+    "test:watch": "jest --watch",
+    "security:audit": "npm audit --audit-level=high"
   },
   "dependencies": {
     "@otplib/plugin-crypto-node": "^13.4.1",
