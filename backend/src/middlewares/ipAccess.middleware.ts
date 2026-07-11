@@ -84,7 +84,7 @@ export async function ipAccessMiddleware(
       if (rule.type === "BLOCK") {
         blocked = true;
       }
-      // If it's an ALLOW rule, we stop checking — they can pass
+      // If it's an ALLOW rule, we stop checking - they can pass
       if (rule.type === "ALLOW") {
         // Store an indicator so downstream rate-limiters can skip this IP
         (req as any).ipIsAllowed = true;
