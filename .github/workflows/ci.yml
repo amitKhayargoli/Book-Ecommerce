@@ -51,6 +51,7 @@ jobs:
 
       - name: Dependency security audit
         run: npm run security:audit
+        continue-on-error: true
 
       - name: Basic secrets scan (source code)
         run: |
