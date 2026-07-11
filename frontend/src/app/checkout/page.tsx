@@ -391,7 +391,7 @@ export default function CheckoutPage() {
                               )}
                             </div>
                             <p className="text-xs text-text-secondary mt-0.5">
-                              {addr.street}, {addr.city}, {addr.country} — {addr.postalCode}
+                              {addr.street}, {addr.city}, {addr.country} - {addr.postalCode}
                             </p>
                           </button>
                         ))}
@@ -553,7 +553,7 @@ export default function CheckoutPage() {
                 </>
               ) : (
                 <>
-                  Place Order — {formatPrice(subtotal)}
+                  Place Order - {formatPrice(subtotal)}
                 </>
               )}
             </button>

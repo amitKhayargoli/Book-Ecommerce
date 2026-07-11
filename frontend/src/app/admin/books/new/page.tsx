@@ -50,7 +50,7 @@ function validateStep(step: number, data: BookFormData): ValidationErrors {
       break;
     }
     case 2: {
-      // Catalog info — all optional, but catch format issues
+      // Catalog info - all optional, but catch format issues
       if (data.publishedYear) {
         const year = Number(data.publishedYear);
         const maxYear = new Date().getFullYear() + 5;
@@ -84,7 +84,7 @@ function validateStep(step: number, data: BookFormData): ValidationErrors {
       break;
     }
     case 4: {
-      // Media — all optional, nothing to validate
+      // Media - all optional, nothing to validate
       break;
     }
   }
@@ -378,7 +378,7 @@ export default function AddBookPage() {
         {/* ── Main Content ───────────────────────────────────────── */}
         <div className="flex flex-col xl:flex-row gap-12 items-start">
           
-          {/* Import Search Sidebar — collapsible with fluid animation */}
+          {/* Import Search Sidebar - collapsible with fluid animation */}
           {!isReviewStep && (
             <motion.div 
               initial={{ opacity: 0, x: -20, width: 420 }}
@@ -449,7 +449,7 @@ export default function AddBookPage() {
                 <p className="text-text-secondary text-base opacity-70">
                   {isReviewStep 
                     ? "Verify all information before publishing the book to the catalog."
-                    : `Step ${currentStep} of ${STEPS.length - 1} — ${STEPS.find(s => s.id === currentStep)?.description || ""}`
+                    : `Step ${currentStep} of ${STEPS.length - 1} - ${STEPS.find(s => s.id === currentStep)?.description || ""}`
                   }
                 </p>
               </div>

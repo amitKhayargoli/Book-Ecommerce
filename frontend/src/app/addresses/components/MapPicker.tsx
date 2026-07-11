@@ -4,7 +4,7 @@ import { useEffect, useRef, useState, useCallback } from "react";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 
-// Leaflet default icon fix — using CDN URLs since Turbopack doesn't resolve PNG imports reliably
+// Leaflet default icon fix - using CDN URLs since Turbopack doesn't resolve PNG imports reliably
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 delete (L.Icon.Default.prototype as any)._getIconUrl;
 L.Icon.Default.mergeOptions({
@@ -251,7 +251,7 @@ export default function MapPicker({
 
   return (
     <div className="space-y-3">
-      {/* Search bar — above the map, normal document flow */}
+      {/* Search bar - above the map, normal document flow */}
       <div className="relative">
         <input
           type="text"

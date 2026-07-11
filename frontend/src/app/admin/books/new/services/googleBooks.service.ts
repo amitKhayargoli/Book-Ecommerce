@@ -101,7 +101,7 @@ export async function searchGoogleBooks(query: string): Promise<OpenLibraryResul
   const isbnCandidate = trimmed.replace(/[-\s]/g, "");
   const isIsbn = /^(?:\d{10}|\d{13}|\d{9}[\dXx])$/.test(isbnCandidate);
 
-  // Build the query parameter — for ISBN searches, use id: prefix for precision
+  // Build the query parameter - for ISBN searches, use id: prefix for precision
   const q = isIsbn ? `id:${isbnCandidate}` : encodeURIComponent(trimmed);
   const apiKey = process.env.NEXT_PUBLIC_GOOGLE_BOOKS_API_KEY ?? "";
   const keyParam = apiKey ? `&key=${apiKey}` : "";
@@ -128,7 +128,7 @@ function mapItemToResult(item: GoogleBooksItem): OpenLibraryResult | null {
   const info = item.volumeInfo;
   if (!info || !info.title) return null;
 
-  // Provide multiple cover sizes — the primary coverImage is the largest available
+  // Provide multiple cover sizes - the primary coverImage is the largest available
   const imageLinks = info.imageLinks;
 
   return {
