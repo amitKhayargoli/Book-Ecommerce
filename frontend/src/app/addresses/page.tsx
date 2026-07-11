@@ -506,7 +506,7 @@ export default function AddressesPage() {
               onClick={closeModal}
             />
 
-            {/* Modal — wider to accommodate the map */}
+            {/* Modal - wider to accommodate the map */}
             <motion.div
               initial={{ opacity: 0, scale: 0.95, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}

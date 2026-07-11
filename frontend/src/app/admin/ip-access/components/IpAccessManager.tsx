@@ -149,7 +149,7 @@ export function IpAccessManager() {
       setNewType("BLOCK");
       setNewLabel("");
       setNewExpiresAt("");
-      showStatus("success", `IP rule created — ${newType === "BLOCK" ? "blocking" : "allowing"} ${trimmedIp}`);
+      showStatus("success", `IP rule created - ${newType === "BLOCK" ? "blocking" : "allowing"} ${trimmedIp}`);
       loadRules();
     } else {
       setFormError(result.error || "Failed to create rule");
@@ -481,19 +481,23 @@ export function IpAccessManager() {
                             <button
                               type="button"
                               onClick={() => handleToggleActive(rule)}
-                              className={`relative w-9 h-5 rounded-full transition-colors ${
-                                rule.isActive && !expired
+                              className={
+                                "relative inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full transition-colors duration-200 ease-in-out focus:outline-none " +
+                                (rule.isActive && !expired
                                   ? rule.type === "ALLOW"
-                                    ? "bg-emerald-500/50"
-                                    : "bg-red-500/50"
-                                  : "bg-white/[0.08]"
-                              }`}
+                                    ? "bg-emerald-500"
+                                    : "bg-red-500"
+                                  : "bg-white/20")
+                              }
+                              role="switch"
+                              aria-checked={rule.isActive && !expired}
                               title={rule.isActive ? "Deactivate" : "Activate"}
                             >
                               <span
-                                className={`absolute top-0.5 w-4 h-4 rounded-full bg-white transition-transform ${
-                                  rule.isActive && !expired ? "translate-x-[18px]" : "translate-x-0.5"
-                                }`}
+                                className={
+                                  "pointer-events-none inline-block h-3.5 w-3.5 rounded-full bg-white shadow-sm ring-0 transition-transform duration-200 ease-in-out " +
+                                  (rule.isActive && !expired ? "translate-x-[18px]" : "translate-x-[3px]")
+                                }
                               />
                             </button>
                           </div>

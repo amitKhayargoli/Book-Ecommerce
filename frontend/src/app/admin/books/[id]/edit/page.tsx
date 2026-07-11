@@ -401,7 +401,7 @@ export default function EditBookPage() {
                 <p className="text-text-secondary text-base opacity-70">
                   {isReviewStep
                     ? "Verify all changes before saving."
-                    : `Step ${currentStep} of ${STEPS.length - 1} — ${STEPS.find((s) => s.id === currentStep)?.description || ""}`}
+                    : `Step ${currentStep} of ${STEPS.length - 1} - ${STEPS.find((s) => s.id === currentStep)?.description || ""}`}
                 </p>
               </div>
 

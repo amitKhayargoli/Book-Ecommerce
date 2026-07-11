@@ -430,7 +430,7 @@ export function AuditLogViewer() {
                             </span>
                           ) : (
                             <span className="text-xs text-text-secondary/50 italic">
-                              —
+                              -
                             </span>
                           )}
                           {log.userId && (
@@ -447,7 +447,7 @@ export function AuditLogViewer() {
                           </span>
                         ) : (
                           <span className="text-xs text-text-secondary/50 italic">
-                            —
+                            -
                           </span>
                         )}
                       </td>

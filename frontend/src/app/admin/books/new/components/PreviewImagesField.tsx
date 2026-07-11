@@ -116,7 +116,7 @@ export function PreviewImagesField({ images, onChange }: PreviewImagesFieldProps
         onChange={(e) => handleFileUpload(e.target.files)}
       />
 
-      {/* Add new image — URL input OR file upload */}
+      {/* Add new image - URL input OR file upload */}
       <div className="flex gap-3">
         <div className="flex-1">
           <input

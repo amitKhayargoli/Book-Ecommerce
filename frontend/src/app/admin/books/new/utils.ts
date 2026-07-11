@@ -13,7 +13,7 @@ const KNOWN_GENRES = [
  * Covers both Google Books (2-letter) and Open Library (3-letter) formats.
  */
 const LANGUAGE_MAP: Record<string, string> = {
-  // ISO 639-1 (two-letter) — used by Google Books
+  // ISO 639-1 (two-letter) - used by Google Books
   en: "English",
   es: "Spanish",
   fr: "French",
@@ -53,7 +53,7 @@ const LANGUAGE_MAP: Record<string, string> = {
   cy: "Welsh",
   gd: "Scottish Gaelic",
   la: "Latin",
-  // ISO 639-2/B (three-letter) — used by Open Library
+  // ISO 639-2/B (three-letter) - used by Open Library
   eng: "English",
   spa: "Spanish",
   fre: "French",

@@ -364,10 +364,10 @@ function ReviewStep({ data }: { data: BookFormData }) {
           <div className="space-y-4 p-6 bg-white/[0.02] border border-white/5 rounded-2xl">
             <h4 className="text-xs font-bold text-white/30 uppercase tracking-[0.2em]">Basic Information</h4>
             <div className="space-y-3">
-              <SummaryField label="Title" value={data.title || "—"} />
-              <SummaryField label="Slug" value={data.slug || "—"} />
-              <SummaryField label="Author" value={data.author || "—"} />
-              <SummaryField label="Description" value={data.description ? (data.description.length > 120 ? data.description.slice(0, 120) + "..." : data.description) : "—"} />
+              <SummaryField label="Title" value={data.title || "-"} />
+              <SummaryField label="Slug" value={data.slug || "-"} />
+              <SummaryField label="Author" value={data.author || "-"} />
+              <SummaryField label="Description" value={data.description ? (data.description.length > 120 ? data.description.slice(0, 120) + "..." : data.description) : "-"} />
             </div>
           </div>
 
@@ -375,10 +375,10 @@ function ReviewStep({ data }: { data: BookFormData }) {
           <div className="space-y-4 p-6 bg-white/[0.02] border border-white/5 rounded-2xl">
             <h4 className="text-xs font-bold text-white/30 uppercase tracking-[0.2em]">Catalog Details</h4>
             <div className="space-y-3">
-              <SummaryField label="Language" value={data.language || "—"} />
-              <SummaryField label="Published" value={data.publishedYear ? String(data.publishedYear) : "—"} />
-              <SummaryField label="Genres" value={data.genres.length > 0 ? data.genres.join(", ") : "—"} />
-              <SummaryField label="Subjects" value={data.subjects.length > 0 ? data.subjects.slice(0, 5).join(", ") + (data.subjects.length > 5 ? ` (+${data.subjects.length - 5} more)` : "") : "—"} />
+              <SummaryField label="Language" value={data.language || "-"} />
+              <SummaryField label="Published" value={data.publishedYear ? String(data.publishedYear) : "-"} />
+              <SummaryField label="Genres" value={data.genres.length > 0 ? data.genres.join(", ") : "-"} />
+              <SummaryField label="Subjects" value={data.subjects.length > 0 ? data.subjects.slice(0, 5).join(", ") + (data.subjects.length > 5 ? ` (+${data.subjects.length - 5} more)` : "") : "-"} />
             </div>
           </div>
 
@@ -386,8 +386,8 @@ function ReviewStep({ data }: { data: BookFormData }) {
           <div className="space-y-4 p-6 bg-white/[0.02] border border-white/5 rounded-2xl">
             <h4 className="text-xs font-bold text-white/30 uppercase tracking-[0.2em]">Pricing & Inventory</h4>
             <div className="space-y-3">
-              <SummaryField label="Base Price" value={data.price ? `NPR ${data.price}` : "—"} />
-              <SummaryField label="Discount Price" value={data.discountPrice ? `NPR ${data.discountPrice}` : "—"} />
+              <SummaryField label="Base Price" value={data.price ? `NPR ${data.price}` : "-"} />
+              <SummaryField label="Discount Price" value={data.discountPrice ? `NPR ${data.discountPrice}` : "-"} />
               <SummaryField label="Stock" value={data.stock ? String(data.stock) : "0"} />
               <SummaryField label="Status" value={data.status} highlight={data.status === "PUBLISHED"} />
               <div className="flex gap-2 pt-1">
@@ -414,9 +414,9 @@ function ReviewStep({ data }: { data: BookFormData }) {
           <div className="space-y-4 p-6 bg-white/[0.02] border border-white/5 rounded-2xl">
             <h4 className="text-xs font-bold text-white/30 uppercase tracking-[0.2em]">Media</h4>
             <div className="space-y-3">
-              <SummaryField label="Cover Image" value={data.coverImageUrl ? "Uploaded" : "—"} />
-              <SummaryField label="Mockup Image" value={data.mockupImageUrl ? "Uploaded" : "—"} />
-              <SummaryField label="Preview Pages" value={data.previewImages.length > 0 ? `${data.previewImages.length} image(s)` : "—"} />
+              <SummaryField label="Cover Image" value={data.coverImageUrl ? "Uploaded" : "-"} />
+              <SummaryField label="Mockup Image" value={data.mockupImageUrl ? "Uploaded" : "-"} />
+              <SummaryField label="Preview Pages" value={data.previewImages.length > 0 ? `${data.previewImages.length} image(s)` : "-"} />
             </div>
 
             {/* Cover preview thumbnail */}
