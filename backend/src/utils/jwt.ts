@@ -6,9 +6,12 @@ interface SignedAuthTokenPayload extends JwtPayload {
   name: string;
   email: string;
   role: AuthUserPayload["role"];
+  tokenVersion: number;
+  userAgentHash?: string;
 }
 
-const DEFAULT_EXPIRY = "7d";
+
+const DEFAULT_EXPIRY = "15d";
 
 function getJwtSecret(): string {
   const secret = process.env.JWT_SECRET;
@@ -24,6 +27,8 @@ export function signAccessToken(user: AuthUserPayload): string {
     name: user.name,
     email: user.email,
     role: user.role,
+    tokenVersion: user.tokenVersion,
+    userAgentHash: user.userAgentHash,
   };
 
   const expiresIn =
@@ -42,5 +47,36 @@ export function verifyAccessToken(token: string): AuthUserPayload {
     name: decoded.name,
     email: decoded.email,
     role: decoded.role,
+    tokenVersion: decoded.tokenVersion,
+    userAgentHash: decoded.userAgentHash,
   };
+}
+
+/**
+ * Sign a short-lived MFA challenge token (5 minutes).
+ * Used to carry the user's identity from password verification to TOTP verification.
+ */
+export function signMfaChallengeToken(user: { id: string; email: string }): string {
+  return jwt.sign(
+    { sub: user.id, email: user.email, purpose: "mfa_challenge" },
+    getJwtSecret(),
+    { expiresIn: "5m" },
+  );
+}
+
+/**
+ * Verify an MFA challenge token and return the user ID.
+ */
+export function verifyMfaChallengeToken(token: string): { id: string; email: string } {
+  const decoded = jwt.verify(token, getJwtSecret()) as JwtPayload & {
+    sub: string;
+    email: string;
+    purpose: string;
+  };
+
+  if (decoded.purpose !== "mfa_challenge") {
+    throw new Error("Invalid token purpose");
+  }
+
+  return { id: decoded.sub, email: decoded.email };
 }

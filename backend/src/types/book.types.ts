@@ -2,11 +2,11 @@ import { Prisma } from "@prisma/client";
 import { Request } from "express";
 import { ParamsDictionary } from "express-serve-static-core";
 import { ParsedQs } from "qs";
-import { PaginationMeta } from "../utils/response";
+import { PaginationMeta, normalizeImageUrl } from "../utils/response";
 import { CreateBookDto, UpdateBookDto, BookQueryDto } from "../dto/book.dto";
 
 // ═══════════════════════════════════════════════════════════════════
-//  SECTION 1 — PRISMA-DERIVED DOMAIN TYPES
+//  SECTION 1 - PRISMA-DERIVED DOMAIN TYPES
 //  These are inferred directly from the Prisma select shape so they
 //  never drift from the actual DB schema.
 // ═══════════════════════════════════════════════════════════════════
@@ -29,7 +29,7 @@ export type BookGenreTag = {
 
 /**
  * The full Book domain object returned by the repository.
- * Derived from Prisma's type system — single source of truth.
+ * Derived from Prisma's type system - single source of truth.
  */
 export type BookRecord = Prisma.BookGetPayload<{
   select: {
@@ -38,9 +38,13 @@ export type BookRecord = Prisma.BookGetPayload<{
     slug: true;
     description: true;
     price: true;
+    discountPrice: true;
     stock: true;
     coverImage: true;
     mockupImage: true;
+    previewImages: true;
+    language: true;
+    publishedAt: true;
     featured: true;
     trending: true;
     createdAt: true;
@@ -55,6 +59,9 @@ export type BookRecord = Prisma.BookGetPayload<{
         };
       };
     };
+    formatPrices: {
+      select: { format: true, price: true };
+    };
     _count: {
       select: { reviews: true };
     };
@@ -62,7 +69,7 @@ export type BookRecord = Prisma.BookGetPayload<{
 }>;
 
 // ═══════════════════════════════════════════════════════════════════
-//  SECTION 2 — API RESPONSE SHAPES
+//  SECTION 2 - API RESPONSE SHAPES
 //  What the controller actually sends back to the client.
 //  Flattened/transformed from BookRecord for clean JSON.
 // ═══════════════════════════════════════════════════════════════════
@@ -76,51 +83,65 @@ export interface BookGenreResponse {
 }
 
 /** Single book as returned in API responses */
+export interface BookFormatPriceResponse {
+  format: string;
+  price: number;
+}
+
+/** Single book as returned in API responses */
 export interface BookResponse {
   id: string;
   title: string;
   slug: string;
   description: string;
   price: number;
+  discountPrice: number | null;
   stock: number;
   coverImage: string;
   mockupImage: string | null;
+  previewImages: string[];
+  language: string | null;
+  publishedAt: Date | null;
   featured: boolean;
   trending: boolean;
   inStock: boolean; // computed: stock > 0
   reviewCount: number; // flattened from _count.reviews
   author: BookAuthor;
   genres: BookGenreResponse[]; // flattened from bookGenres[].genre
+  formatPrices: BookFormatPriceResponse[];
   createdAt: Date;
   updatedAt: Date;
 }
 
-/** Response for list endpoints — data + pagination meta */
+/** Response for list endpoints - data + pagination meta */
 export interface PaginatedBooksResponse {
   books: BookResponse[];
   meta: PaginationMeta;
 }
 
-/** Lightweight book card — used in featured/trending/author lists */
+/** Lightweight book card - used in featured/trending/author lists */
 export interface BookSummary {
   id: string;
   title: string;
   slug: string;
   price: number;
+  discountPrice: number | null;
   stock: number;
   inStock: boolean;
   coverImage: string;
   mockupImage: string | null;
+  previewImages: string[];
   featured: boolean;
   trending: boolean;
   author: Pick<BookAuthor, "id" | "name" | "slug">;
   genres: Pick<BookGenreResponse, "id" | "name" | "color">[];
   reviewCount: number;
+  formatPrices: BookFormatPriceResponse[];
 }
 
 // ═══════════════════════════════════════════════════════════════════
-//  SECTION 3 — SERVICE LAYER INTERFACES
-//  Contract the service exposes — decouples controller from impl.
+//  SECTION 3 - SERVICE LAYER INTERFACES
+//  Contract the service exposes - decouples controller from impl.
 // ═══════════════════════════════════════════════════════════════════
 
 export interface IBookService {
@@ -138,8 +159,8 @@ export interface IBookService {
 }
 
 // ═══════════════════════════════════════════════════════════════════
-//  SECTION 4 — REPOSITORY LAYER INTERFACES
-//  Contract the repository exposes — makes it swappable/mockable.
+//  SECTION 4 - REPOSITORY LAYER INTERFACES
+//  Contract the repository exposes - makes it swappable/mockable.
 // ═══════════════════════════════════════════════════════════════════
 
 export interface FindManyResult {
@@ -162,7 +183,7 @@ export interface IBookRepository {
 }
 
 // ═══════════════════════════════════════════════════════════════════
-//  SECTION 5 — TYPED EXPRESS REQUEST EXTENSIONS
+//  SECTION 5 - TYPED EXPRESS REQUEST EXTENSIONS
 //
 //  The correct pattern is to use Request<Params, ResBody, ReqBody, Query>
 //  generics rather than extending and overriding individual properties.
@@ -188,7 +209,7 @@ export type UpdateBookRequest = Request<
   ParsedQs
 >;
 
-// Query carries raw strings — validate() middleware coerces them to BookQueryDto
+// Query carries raw strings - validate() middleware coerces them to BookQueryDto
 // Use `req.query as unknown as BookQueryDto` after middleware runs
 export type GetBooksRequest = Request<
   ParamsDictionary,
@@ -218,9 +239,9 @@ export type BooksByAuthorRequest = Request<
 >;
 
 // ═══════════════════════════════════════════════════════════════════
-//  SECTION 6 — SORT / FILTER ENUMS
+//  SECTION 6 - SORT / FILTER ENUMS
 //  Centralised so the DTO, service, and consumers all use the same
-//  values — no magic strings scattered across the codebase.
+//  values - no magic strings scattered across the codebase.
 // ═══════════════════════════════════════════════════════════════════
 
 export const BOOK_SORT_FIELDS = [
@@ -235,7 +256,7 @@ export const SORT_ORDERS = ["asc", "desc"] as const;
 export type SortOrder = (typeof SORT_ORDERS)[number];
 
 // ═══════════════════════════════════════════════════════════════════
-//  SECTION 7 — UTILITY / TRANSFORMER HELPERS
+//  SECTION 7 - UTILITY / TRANSFORMER HELPERS
 //  Pure functions that convert BookRecord → response shapes.
 //  Keep them here so controller and service share the same logic.
 // ═══════════════════════════════════════════════════════════════════
@@ -251,15 +272,23 @@ export function toBookResponse(record: BookRecord): BookResponse {
     slug: record.slug,
     description: record.description,
     price: record.price,
+    discountPrice: record.discountPrice ?? null,
     stock: record.stock,
-    coverImage: record.coverImage,
-    mockupImage: record.mockupImage,
+    coverImage: normalizeImageUrl(record.coverImage) ?? record.coverImage,
+    mockupImage: normalizeImageUrl(record.mockupImage),
+    previewImages: record.previewImages.map(img => normalizeImageUrl(img) ?? img),
+    language: record.language ?? null,
+    publishedAt: record.publishedAt ?? null,
     featured: record.featured,
     trending: record.trending,
     inStock: record.stock > 0,
     reviewCount: record._count.reviews,
     author: record.author,
     genres: record.bookGenres.map((bg) => bg.genre),
+    formatPrices: record.formatPrices.map((fp) => ({
+      format: fp.format,
+      price: fp.price,
+    })),
     createdAt: record.createdAt,
     updatedAt: record.updatedAt,
   };
@@ -275,10 +304,12 @@ export function toBookSummary(record: BookRecord): BookSummary {
     title: record.title,
     slug: record.slug,
     price: record.price,
+    discountPrice: record.discountPrice ?? null,
     stock: record.stock,
     inStock: record.stock > 0,
-    coverImage: record.coverImage,
-    mockupImage: record.mockupImage,
+    coverImage: normalizeImageUrl(record.coverImage) ?? record.coverImage,
+    mockupImage: normalizeImageUrl(record.mockupImage),
+    previewImages: record.previewImages.map(img => normalizeImageUrl(img) ?? img),
     featured: record.featured,
     trending: record.trending,
     author: {
@@ -292,5 +323,9 @@ export function toBookSummary(record: BookRecord): BookSummary {
       color: bg.genre.color,
     })),
     reviewCount: record._count.reviews,
+    formatPrices: record.formatPrices.map((fp) => ({
+      format: fp.format,
+      price: fp.price,
+    })),
   };
 }

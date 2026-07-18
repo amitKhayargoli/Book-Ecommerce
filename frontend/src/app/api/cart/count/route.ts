@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
-
-const BACKEND_BASE_URL = process.env.NEXT_PUBLIC_BACKEND_URL ?? "http://localhost:4000";
+import { BACKEND_URL } from "@/lib/server-config";
 
 export async function GET() {
   const session = await auth();
@@ -14,7 +13,7 @@ export async function GET() {
   }
 
   try {
-    const response = await fetch(`${BACKEND_BASE_URL}/api/cart/count`, {
+    const response = await fetch(`${BACKEND_URL}/api/cart/count`, {
       method: "GET",
       headers: {
         Authorization: `Bearer ${session.accessToken}`,

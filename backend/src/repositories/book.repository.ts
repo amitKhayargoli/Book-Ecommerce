@@ -1,11 +1,10 @@
-import { Prisma, PrismaClient } from "@prisma/client";
+import { Prisma } from "@prisma/client";
+import prisma from "../lib/prisma";
 import {
   CreateBookDbDto,
   UpdateBookDto,
   BookQueryDto,
 } from "../dto/book.dto";
-
-const prisma = new PrismaClient();
 
 const slugify = (value: string): string =>
   value
@@ -21,9 +20,13 @@ const bookSelect = {
   slug: true,
   description: true,
   price: true,
+  discountPrice: true,
   stock: true,
   coverImage: true,
   mockupImage: true,
+  previewImages: true,
+  language: true,
+  publishedAt: true,
   featured: true,
   trending: true,
   createdAt: true,
@@ -37,6 +40,9 @@ const bookSelect = {
         select: { id: true, name: true, slug: true, color: true },
       },
     },
+  },
+  formatPrices: {
+    select: { format: true, price: true },
   },
   _count: {
     select: { reviews: true },
@@ -234,7 +240,7 @@ export class BookRepository {
 
   // ── Create ────────────────────────────────────────────────────
   async create(dto: CreateBookDbDto): Promise<BookRecord> {
-    const { genreIds, ...bookData } = dto;
+    const { genreIds, formatPrices, ...bookData } = dto;
 
     return prisma.book.create({
       data: {
@@ -244,6 +250,14 @@ export class BookRepository {
             create: genreIds.map((genreId) => ({ genreId })),
           },
         }),
+        ...(formatPrices?.length && {
+          formatPrices: {
+            create: formatPrices.map((fp) => ({
+              format: fp.format,
+              price: fp.price,
+            })),
+          },
+        }),
       },
       select: bookSelect,
     });
@@ -251,7 +265,7 @@ export class BookRepository {
 
   // ── Update ────────────────────────────────────────────────────
   async update(id: string, dto: UpdateBookDto): Promise<BookRecord> {
-    const { genreIds, ...bookData } = dto;
+    const { genreIds, formatPrices, ...bookData } = dto;
 
     return prisma.book.update({
       where: { id },
@@ -262,6 +276,16 @@ export class BookRepository {
           bookGenres: {
             deleteMany: {},
             create: genreIds.map((genreId) => ({ genreId })),
+          },
+        }),
+        // Replace all format prices if formatPrices provided
+        ...(formatPrices && {
+          formatPrices: {
+            deleteMany: {},
+            create: formatPrices.map((fp) => ({
+              format: fp.format,
+              price: fp.price,
+            })),
           },
         }),
       },

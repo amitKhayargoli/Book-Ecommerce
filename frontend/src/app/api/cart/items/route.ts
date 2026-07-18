@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
-
-const BACKEND_BASE_URL = process.env.NEXT_PUBLIC_BACKEND_URL ?? "http://localhost:4000";
+import { BACKEND_URL } from "@/lib/server-config";
 
 export async function POST(req: NextRequest) {
   const session = await auth();
@@ -23,9 +22,11 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  const bodyPayload = payload as Record<string, unknown>;
+
   const bookId =
-    typeof payload === "object" && payload !== null && "bookId" in payload
-      ? (payload as { bookId?: unknown }).bookId
+    typeof bodyPayload === "object" && bodyPayload !== null && "bookId" in bodyPayload
+      ? bodyPayload.bookId
       : undefined;
 
   if (typeof bookId !== "string" || bookId.trim().length === 0) {
@@ -35,14 +36,17 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  // Forward the format field if present (for format-specific pricing)
+  const format = "format" in bodyPayload ? bodyPayload.format : undefined;
+
   try {
-    const response = await fetch(`${BACKEND_BASE_URL}/api/cart/items`, {
+    const response = await fetch(`${BACKEND_URL}/api/cart/items`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         Authorization: `Bearer ${session.accessToken}`,
       },
-      body: JSON.stringify({ bookId }),
+      body: JSON.stringify({ bookId, format }),
       cache: "no-store",
     });
 

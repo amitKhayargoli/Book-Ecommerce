@@ -1,0 +1,100 @@
+services:
+  # ─── MongoDB (replica set required by Prisma) ──
+  mongo:
+    image: mongo:7
+    container_name: book-mongo
+    restart: unless-stopped
+    command: ["--replSet", "rs0", "--bind_ip_all"]
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+    healthcheck:
+      test: echo 'db.runCommand("ping").ok' | mongosh --quiet
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ─── MongoDB Replica Set Initialiser ────────
+  mongo-init:
+    image: mongo:7
+    container_name: book-mongo-init
+    restart: no
+    depends_on:
+      mongo:
+        condition: service_healthy
+    entrypoint:
+      - /bin/bash
+      - -c
+      - |
+        mongosh --host mongo --eval '
+          try {
+            rs.initiate({ _id: "rs0", members: [{ _id: 0, host: "mongo:27017" }] });
+          } catch(e) {
+            if (e.code !== 23) { throw e; }
+          }
+        '
+
+  # ─── Backend (Express API) ────────────────────
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+      # "development" stage: hot-reload via ts-node + volume mounts
+      # Switch to "production" for deployment builds
+      target: ${BACKEND_TARGET:-development}
+    container_name: book-backend
+    restart: unless-stopped
+    ports:
+      - "4000:3001"
+      - "5555:5555"
+    env_file:
+      - ./backend/.env
+    environment:
+      - DATABASE_URL=mongodb://mongo:27017/bookstore
+      - NODE_ENV=${NODE_ENV:-development}
+      - CORS_ORIGIN=http://localhost:3000
+      - FRONTEND_BASE_URL=http://localhost:3000
+      - AUTH_GOOGLE_ID=983296584328-0ljv301ovl183i8togdf42ki4oof8i9f.apps.googleusercontent.com
+      # SMTP settings are loaded from backend/.env via env_file above
+    depends_on:
+      mongo-init:
+        condition: service_completed_successfully
+    volumes:
+      # Hot-reload: source code mounts over the container's copy
+      - ./backend/src:/app/src
+      # Hot-reload: Prisma schema so schema changes don't require a full rebuild
+      - ./backend/prisma:/app/prisma
+      # Persist uploaded files
+      - backend_uploads:/app/uploads
+
+  # ─── Frontend (Next.js) ───────────────────────
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      target: ${FRONTEND_TARGET:-development}
+    container_name: book-frontend
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    env_file:
+      - ./frontend/.env
+    environment:
+      # Server-side (used by API routes + next-auth inside the Docker network)
+      - BACKEND_URL=http://backend:3001
+      # Client-side (read at runtime by Next.js dev server)
+      - NEXT_PUBLIC_BACKEND_URL=http://localhost:4000
+      - NEXTAUTH_URL=http://localhost:3000
+      - NEXTAUTH_SECRET=${NEXTAUTH_SECRET}
+      - AUTH_TRUST_HOST=true
+    depends_on:
+      - backend
+    volumes:
+      # Hot-reload: mount source so changes reflect instantly
+      - ./frontend/src:/app/src
+      - ./frontend/public:/app/public
+
+volumes:
+  mongo_data:
+  backend_uploads:

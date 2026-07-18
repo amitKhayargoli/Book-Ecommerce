@@ -44,7 +44,7 @@ export function SearchResultCard({ book, onImport, isSelected }: SearchResultCar
             )}
         </div>
         
-        <div className="text-sm text-text-secondary mb-5 space-y-2 flex-1">
+        <div className="text-sm text-text-secondary mb-3 space-y-2 flex-1">
           {book.authors.length > 0 && (
             <div className="flex items-center gap-2 truncate opacity-80">
               <User className="w-3.5 h-3.5 shrink-0" />
@@ -54,13 +54,27 @@ export function SearchResultCard({ book, onImport, isSelected }: SearchResultCar
           
           <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-xs font-medium tracking-wide opacity-60">
             {book.year && <span className="bg-white/5 px-2 py-0.5 rounded">{book.year}</span>}
-            {book.isbn && (
-              <div className="flex items-center gap-1.5">
-                <Hash className="w-3 h-3" />
-                <span>{book.isbn}</span>
-              </div>
-            )}
+            {book.publisher && <span className="truncate">{book.publisher}</span>}
           </div>
+
+          {/* Genres / Categories */}
+          {book.subjects && book.subjects.length > 0 && (
+            <div className="flex flex-wrap gap-1.5 mt-2">
+              {book.subjects.slice(0, 3).map((cat) => (
+                <span 
+                  key={cat}
+                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-white/5 border border-white/5 text-[10px] font-bold uppercase tracking-wider text-white/60"
+                >
+                  {cat}
+                </span>
+              ))}
+              {book.subjects.length > 3 && (
+                <span className="text-[10px] text-white/30 font-medium self-center">
+                  +{book.subjects.length - 3}
+                </span>
+              )}
+            </div>
+          )}
         </div>
         
         <div className="mt-auto">

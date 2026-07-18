@@ -1,11 +1,12 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useCallback } from "react";
 import Image from "next/image";
-import Link from "next/link";
-import { Search } from "lucide-react";
-import { motion } from "framer-motion";
+import { Search, Trash2, Loader2, X, Edit3 } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
 import { AdminBookItem } from "../page";
+import { handleDeleteBook } from "../actions/book-actions";
+import Link from "next/link";
 
 interface BooksCatalogProps {
   books: AdminBookItem[];
@@ -13,11 +14,151 @@ interface BooksCatalogProps {
 
 type VerificationFilter = "all" | "verified" | "unverified";
 
-export function BooksCatalog({ books }: BooksCatalogProps) {
+// ── Confirm Delete Modal ──────────────────────────────────────────
+function ConfirmDeleteModal({
+  book,
+  onConfirm,
+  onCancel,
+}: {
+  book: { id: string; title: string };
+  onConfirm: () => void;
+  onCancel: () => void;
+}) {
+  return (
+    <motion.div
+      className="fixed inset-0 z-50 flex items-center justify-center p-6"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.2 }}
+    >
+      {/* Backdrop */}
+      <motion.div
+        className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        onClick={onCancel}
+      />
+
+      {/* Modal */}
+      <motion.div
+        initial={{ opacity: 0, scale: 0.95, y: 20 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.95, y: 20 }}
+        transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
+        className="relative w-full max-w-md bg-card/80 backdrop-blur-3xl border border-white/[0.08] rounded-[28px] p-8 shadow-[0_20px_60px_rgba(0,0,0,0.6)] overflow-hidden"
+      >
+        {/* Top shine */}
+        <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent" />
+
+        {/* Close button */}
+        <button
+          type="button"
+          onClick={onCancel}
+          className="absolute top-5 right-5 w-8 h-8 rounded-full bg-white/5 border border-white/10 flex items-center justify-center hover:bg-white/10 transition-colors"
+        >
+          <X className="w-4 h-4 text-white/60" />
+        </button>
+
+        <div className="flex flex-col items-center text-center">
+          {/* Icon */}
+          <div className="w-14 h-14 rounded-full bg-red-500/10 border border-red-500/20 flex items-center justify-center mb-5">
+            <Trash2 className="w-6 h-6 text-red-400" />
+          </div>
+
+          <h3 className="text-xl font-display font-semibold text-white mb-2">
+            Delete book
+          </h3>
+          <p className="text-sm text-text-secondary leading-relaxed max-w-xs">
+            Are you sure you want to delete{" "}
+            <span className="text-white font-medium">
+              &ldquo;{book.title}&rdquo;
+            </span>
+            ? This action cannot be undone.
+          </p>
+
+          <div className="flex gap-3 mt-8 w-full">
+            <button
+              type="button"
+              onClick={onCancel}
+              className="flex-1 h-12 rounded-2xl border border-white/10 bg-white/5 text-sm font-medium text-white/70 hover:text-white hover:bg-white/10 hover:border-white/20 transition-all"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={onConfirm}
+              className="flex-1 h-12 rounded-2xl bg-red-500 text-sm font-bold text-white hover:bg-red-600 transition-all shadow-lg shadow-red-500/20 active:scale-[0.97]"
+            >
+              Delete
+            </button>
+          </div>
+        </div>
+      </motion.div>
+    </motion.div>
+  );
+}
+
+// ── Book placeholder SVG ─────────────────────────────────────────
+function BookPlaceholder() {
+  return (
+    <svg
+      viewBox="0 0 64 96"
+      className="w-full h-full"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+    >
+      <rect x="0" y="0" width="64" height="96" rx="4" fill="#1e1e2e" />
+      <rect x="4" y="2" width="56" height="92" rx="2" fill="#2a2a3e" />
+      <rect x="8" y="4" width="48" height="88" rx="1" fill="#3a3a4e" />
+      <rect x="0" y="0" width="4" height="96" rx="2" fill="#5555cc" opacity="0.6" />
+      <line x1="16" y1="28" x2="52" y2="28" stroke="#5555cc" strokeWidth="2" strokeLinecap="round" opacity="0.5" />
+      <line x1="16" y1="36" x2="48" y2="36" stroke="#ffffff" strokeWidth="1" strokeLinecap="round" opacity="0.15" />
+      <line x1="16" y1="44" x2="40" y2="44" stroke="#ffffff" strokeWidth="1" strokeLinecap="round" opacity="0.1" />
+      <line x1="16" y1="52" x2="44" y2="52" stroke="#ffffff" strokeWidth="1" strokeLinecap="round" opacity="0.08" />
+      <rect x="22" y="60" width="20" height="24" rx="2" stroke="#5555cc" strokeWidth="1.5" opacity="0.4" fill="none" />
+      <line x1="28" y1="66" x2="36" y2="66" stroke="#5555cc" strokeWidth="1" strokeLinecap="round" opacity="0.4" />
+      <line x1="28" y1="70" x2="36" y2="70" stroke="#5555cc" strokeWidth="1" strokeLinecap="round" opacity="0.3" />
+      <line x1="28" y1="74" x2="34" y2="74" stroke="#5555cc" strokeWidth="1" strokeLinecap="round" opacity="0.3" />
+    </svg>
+  );
+}
+
+// ── Book cover with fallback ──────────────────────────────────────
+function BookCover({ coverSrc, title }: { coverSrc: string | null | undefined; title: string }) {
+  const [errored, setErrored] = useState(false);
+
+  // Filter out external placeholder URLs that next/image can't load
+  const isPlaceholder = coverSrc?.includes("placehold.co");
+
+  if (!coverSrc || isPlaceholder || errored) return <BookPlaceholder />;
+
+  return (
+    <Image
+      src={coverSrc}
+      alt={title}
+      width={64}
+      height={96}
+      className="w-full h-full object-cover"
+      onError={() => setErrored(true)}
+    />
+  );
+}
+
+// ── Main Component ────────────────────────────────────────────────
+export function BooksCatalog({ books: initialBooks }: BooksCatalogProps) {
+  const [books, setBooks] = useState(initialBooks);
   const [query, setQuery] = useState("");
   const [selectedGenre, setSelectedGenre] = useState("all");
   const [verificationFilter, setVerificationFilter] =
     useState<VerificationFilter>("all");
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState<{
+    id: string;
+    title: string;
+  } | null>(null);
 
   const genres = useMemo(() => {
     const unique = new Set<string>();
@@ -54,6 +195,33 @@ export function BooksCatalog({ books }: BooksCatalogProps) {
     });
   }, [books, query, selectedGenre, verificationFilter]);
 
+  const handleDelete = useCallback((id: string, title: string) => {
+    setConfirmDelete({ id, title });
+  }, []);
+
+  const confirmDeleteBook = useCallback(async () => {
+    if (!confirmDelete) return;
+
+    const { id } = confirmDelete;
+    setConfirmDelete(null);
+    setDeletingId(id);
+    setDeleteError(null);
+
+    const result = await handleDeleteBook(id);
+
+    if (result.success) {
+      setBooks((prev) => prev.filter((b) => b.id !== id));
+    } else {
+      setDeleteError(result.error || "Failed to delete book");
+    }
+
+    setDeletingId(null);
+  }, [confirmDelete]);
+
+  const cancelDelete = useCallback(() => {
+    setConfirmDelete(null);
+  }, []);
+
   return (
     <div className="space-y-8">
       <section className="rounded-[40px] border border-white/5 bg-card/40 backdrop-blur-3xl px-8 py-8 md:px-10 md:py-9">
@@ -80,6 +248,12 @@ export function BooksCatalog({ books }: BooksCatalogProps) {
         </div>
       </section>
 
+      {deleteError && (
+        <div className="rounded-2xl border border-red-500/30 bg-red-500/10 px-5 py-3 text-sm text-red-300">
+          {deleteError}
+        </div>
+      )}
+
       <section className="rounded-[32px] border border-white/5 bg-card/30 backdrop-blur-3xl p-5 md:p-6">
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
           <div className="xl:col-span-2 relative">
@@ -99,7 +273,11 @@ export function BooksCatalog({ books }: BooksCatalogProps) {
             className="h-11 rounded-xl border border-white/10 bg-white/5 text-sm text-white px-3 focus:outline-none focus:ring-2 focus:ring-white/20"
           >
             {genres.map((genre) => (
-              <option key={genre} value={genre} className="bg-card-hover text-white">
+              <option
+                key={genre}
+                value={genre}
+                className="bg-card-hover text-white"
+              >
                 {genre === "all" ? "All genres" : genre}
               </option>
             ))}
@@ -126,92 +304,92 @@ export function BooksCatalog({ books }: BooksCatalogProps) {
       </section>
 
       <section className="space-y-3">
-        {filteredBooks.map((book, index) => {
-          const coverSrc = book.localCoverPath ?? book.sourceCoverUrl;
+        <AnimatePresence>
+          {filteredBooks.map((book, index) => {
+            const coverSrc = book.localCoverPath ?? book.sourceCoverUrl;
+            const isDeleting = deletingId === book.id;
 
-          return (
-            <motion.article
-              key={book.id}
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{
-                duration: 0.25,
-                delay: Math.min(index * 0.02, 0.2),
-              }}
-              className="rounded-2xl border border-white/5 bg-white/[0.02] px-4 py-4 md:px-5"
-            >
-              <div className="flex items-start gap-4">
-                <div className="w-16 h-24 rounded-lg overflow-hidden border border-white/10 bg-white/5 shrink-0">
-                  {coverSrc ? (
-                    <Image
-                      src={coverSrc}
-                      alt={book.title}
-                      width={64}
-                      height={96}
-                      className="w-full h-full object-cover"
-                    />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center text-[10px] text-text-secondary">
-                      No Cover
+            return (
+              <motion.article
+                key={book.id}
+                layout
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{
+                  opacity: 0,
+                  height: 0,
+                  marginBottom: 0,
+                  overflow: "hidden",
+                }}
+                transition={{
+                  duration: 0.3,
+                  delay: Math.min(index * 0.02, 0.2),
+                  ease: [0.16, 1, 0.3, 1],
+                }}
+                className={`rounded-2xl border border-white/5 bg-white/[0.02] px-4 py-4 md:px-5 transition-opacity ${
+                  isDeleting ? "opacity-40 pointer-events-none" : ""
+                }`}
+              >
+                <div className="flex items-start gap-4">
+                  <div className="w-16 h-24 rounded-lg overflow-hidden border border-white/10 bg-white/5 shrink-0">
+                    <BookCover coverSrc={coverSrc} title={book.title} />
+                  </div>
+
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-2">
+                      <div className="min-w-0">
+                        <h3 className="text-lg font-display font-semibold truncate">
+                          {book.title}
+                        </h3>
+                        <p className="text-sm text-text-secondary truncate">
+                          {book.author}
+                        </p>
+                      </div>
                     </div>
-                  )}
+
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      {(book.frontendGenres ?? []).map((genre) => (
+                        <span
+                          key={`${book.id}-${genre}`}
+                          className="text-[10px] uppercase tracking-[0.18em] px-2 py-1 rounded-full bg-white/5 border border-white/10 text-text-secondary"
+                        >
+                          {genre}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Actions */}
+                  <div className="shrink-0 self-start pt-1 flex items-center gap-2">
+                    <Link
+                      href={`/admin/books/${book.id}/edit`}
+                      className="flex items-center gap-1.5 px-3 py-2 text-xs font-medium text-blue-400/70 hover:text-blue-300 bg-white/[0.02] hover:bg-blue-500/10 rounded-xl border border-transparent hover:border-blue-500/20 transition-all"
+                    >
+                      <Edit3 className="w-3.5 h-3.5" />
+                      <span className="hidden sm:inline">Edit</span>
+                    </Link>
+
+                    <button
+                      type="button"
+                      onClick={() => handleDelete(book.id, book.title)}
+                      disabled={isDeleting}
+                      className="flex items-center gap-1.5 px-3 py-2 text-xs font-medium text-red-400/70 hover:text-red-300 bg-white/[0.02] hover:bg-red-500/10 rounded-xl border border-transparent hover:border-red-500/20 transition-all disabled:opacity-40"
+                    >
+                      {isDeleting ? (
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      ) : (
+                        <Trash2 className="w-3.5 h-3.5" />
+                      )}
+                      <span className="hidden sm:inline">
+                        {isDeleting ? "Deleting..." : "Delete"}
+                      </span>
+                    </button>
+                  </div>
                 </div>
-
-                <div className="min-w-0 flex-1">
-                  <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-2">
-                    <div className="min-w-0">
-                      <h3 className="text-lg font-display font-semibold truncate">
-                        {book.title}
-                      </h3>
-                      <p className="text-sm text-text-secondary truncate">
-                        {book.author}
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span
-                        className={`text-[10px] uppercase tracking-[0.22em] px-2.5 py-1 rounded-full border ${
-                          book.verified
-                            ? "border-adventure/50 text-adventure"
-                            : "border-white/20 text-text-secondary"
-                        }`}
-                      >
-                        {book.verified ? "Verified" : "Unverified"}
-                      </span>
-                      <span className="text-[10px] uppercase tracking-[0.22em] px-2.5 py-1 rounded-full border border-white/20 text-text-secondary">
-                        {book.sourceType ?? "unknown source"}
-                      </span>
-                    </div>
-                  </div>
-
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    {(book.frontendGenres ?? []).map((genre) => (
-                      <span
-                        key={`${book.id}-${genre}`}
-                        className="text-[10px] uppercase tracking-[0.18em] px-2 py-1 rounded-full bg-white/5 border border-white/10 text-text-secondary"
-                      >
-                        {genre}
-                      </span>
-                    ))}
-                  </div>
-
-                  <div className="mt-3 flex items-center gap-4 text-xs text-text-secondary">
-                    <span>ID: {book.id}</span>
-                    {book.appleBooksUrl && (
-                      <Link
-                        href={book.appleBooksUrl}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="hover:text-white transition-colors"
-                      >
-                        Open source
-                      </Link>
-                    )}
-                  </div>
-                </div>
-              </div>
-            </motion.article>
-          );
-        })}
+              </motion.article>
+            );
+          })}
+        </AnimatePresence>
 
         {filteredBooks.length === 0 && (
           <div className="rounded-2xl border border-white/5 bg-white/[0.02] p-10 text-center">
@@ -224,6 +402,17 @@ export function BooksCatalog({ books }: BooksCatalogProps) {
           </div>
         )}
       </section>
+
+      {/* Confirm Delete Modal */}
+      <AnimatePresence>
+        {confirmDelete && (
+          <ConfirmDeleteModal
+            book={confirmDelete}
+            onConfirm={confirmDeleteBook}
+            onCancel={cancelDelete}
+          />
+        )}
+      </AnimatePresence>
     </div>
   );
 }

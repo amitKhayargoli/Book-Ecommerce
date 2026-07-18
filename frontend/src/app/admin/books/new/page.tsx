@@ -7,20 +7,20 @@ import { SaveActionsBar } from "./components/SaveActionsBar";
 import { FormStepIndicator, STEPS } from "./components/FormStepIndicator";
 import { BookFormData, OpenLibraryResult, ValidationErrors } from "./types";
 import { mapOpenLibraryToFormData, validateBookForm } from "./utils";
-import { CheckCircle2, ArrowLeft, ArrowRight } from "lucide-react";
+import { CheckCircle2, ArrowLeft, ArrowRight, ChevronLeft, ChevronRight } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import { useRouter } from "next/navigation";
 import { handleCreateBook, ServerActionResult } from "../actions/book-actions";
 import { BookPayload } from "@/lib/api/books";
+
+const FORMAT_NAMES = ["Hardcover", "Paperback", "E-Book", "Audiobook"];
 
 const emptyFormData: BookFormData = {
   title: "",
   slug: "",
   description: "",
   author: "",
-  publisher: "",
-  isbn: "",
   language: "",
-  pages: "",
   publishedYear: "",
   genres: [],
   subjects: [],
@@ -33,6 +33,7 @@ const emptyFormData: BookFormData = {
   coverImageUrl: "",
   mockupImageUrl: "",
   previewImages: [],
+  formatPrices: FORMAT_NAMES.map((format) => ({ format, price: "" })),
 };
 
 const DRAFT_STORAGE_KEY = "admin_book_draft";
@@ -49,13 +50,7 @@ function validateStep(step: number, data: BookFormData): ValidationErrors {
       break;
     }
     case 2: {
-      // Catalog info — all optional, but catch format issues
-      if (data.pages) {
-        const pages = Number(data.pages);
-        if (!Number.isFinite(pages) || pages <= 0) {
-          errors.pages = "Pages must be greater than 0";
-        }
-      }
+      // Catalog info - all optional, but catch format issues
       if (data.publishedYear) {
         const year = Number(data.publishedYear);
         const maxYear = new Date().getFullYear() + 5;
@@ -73,12 +68,23 @@ function validateStep(step: number, data: BookFormData): ValidationErrors {
         if (isNaN(discountPrice) || discountPrice < 0) errors.discountPrice = "Check discount price";
         if (discountPrice > price) errors.discountPrice = "Discount cannot exceed price";
       }
+      // Validate format prices
+      if (data.formatPrices && data.formatPrices.length > 0) {
+        for (const fp of data.formatPrices) {
+          if (fp.price) {
+            const fpPrice = Number(fp.price);
+            if (isNaN(fpPrice) || fpPrice < 0) {
+              errors[`formatPrice_${fp.format}`] = `${fp.format} price must be 0 or more`;
+            }
+          }
+        }
+      }
       const stock = Number(data.stock);
       if (isNaN(stock) || stock < 0) errors.stock = "Stock must be 0 or more";
       break;
     }
     case 4: {
-      // Media — all optional, nothing to validate
+      // Media - all optional, nothing to validate
       break;
     }
   }
@@ -94,6 +100,8 @@ export default function AddBookPage() {
   const [requestError, setRequestError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [isHydrated, setIsHydrated] = useState(false);
+  const router = useRouter();
+  const [importPanelOpen, setImportPanelOpen] = useState(true);
 
   // ── Multi-step state ──────────────────────────────────────────
   const [currentStep, setCurrentStep] = useState(1);
@@ -260,20 +268,22 @@ export default function AddBookPage() {
         formData.description.trim() || `No description provided for ${formData.title.trim()}`,
       price: toNumber(formData.price),
       discountPrice: toOptionalNumber(formData.discountPrice),
+      formatPrices: formData.formatPrices
+        ? formData.formatPrices
+            .filter((fp) => fp.price !== "")
+            .map((fp) => ({ format: fp.format, price: Number(fp.price) }))
+        : undefined,
       stock: toNumber(formData.stock),
-      isbn: formData.isbn.trim() || undefined,
       publishedAt: formData.publishedYear
         ? `${Number(formData.publishedYear)}-01-01T00:00:00.000Z`
         : undefined,
       language: formData.language.trim() || undefined,
-      pages: toOptionalNumber(formData.pages),
-      coverImage: formData.coverImageUrl.trim() || "https://placehold.co/600x900?text=Book+Cover",
+      coverImage: formData.coverImageUrl.trim() || undefined,
       mockupImage: formData.mockupImageUrl.trim() || undefined,
       previewImages: formData.previewImages.filter((img) => img.trim().length > 0),
       featured: formData.isFeatured,
       trending: formData.isTrending,
       authorName: formData.author.trim(),
-      publisherName: formData.publisher.trim() || undefined,
       genreNames: formData.genres,
     };
 
@@ -284,10 +294,14 @@ export default function AddBookPage() {
       .then((result: ServerActionResult<unknown>) => {
         if (result.success) {
           setErrors({});
-          setSuccessMessage("Book created successfully and stored in MongoDB.");
+          setSuccessMessage("Book created successfully! Redirecting...");
           localStorage.removeItem(DRAFT_STORAGE_KEY);
           setCompletedSteps([]);
           setStepErrors({});
+          // Redirect to books list after a brief delay so user sees the success message
+          setTimeout(() => {
+            router.replace("/admin/books");
+          }, 1200);
         } else {
           setRequestError(result.error || "Failed to create book");
         }
@@ -364,19 +378,58 @@ export default function AddBookPage() {
         {/* ── Main Content ───────────────────────────────────────── */}
         <div className="flex flex-col xl:flex-row gap-12 items-start">
           
-          {/* Import Search Sidebar (hidden on review step) */}
+          {/* Import Search Sidebar - collapsible with fluid animation */}
           {!isReviewStep && (
             <motion.div 
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.6, delay: 0.2 }}
-              className="w-full xl:w-[420px] shrink-0 z-10"
+              initial={{ opacity: 0, x: -20, width: 420 }}
+              animate={{ 
+                opacity: importPanelOpen ? 1 : 0,
+                x: importPanelOpen ? 0 : -20,
+                width: importPanelOpen ? 420 : 0,
+              }}
+              transition={{ 
+                duration: 0.45, 
+                ease: [0.22, 1, 0.36, 1],
+              }}
+              className="overflow-hidden shrink-0 z-10"
             >
-              <BookImportSearch 
-                onImportBook={handleImportBook} 
-                selectedKey={importedData?.key} 
-              />
+              <div className="w-[420px] relative">
+                {/* Collapse button */}
+                {importPanelOpen && (
+                  <button
+                    type="button"
+                    onClick={() => setImportPanelOpen(false)}
+                    className="absolute top-6 right-6 z-20 w-8 h-8 rounded-full bg-white/10 border border-white/20 flex items-center justify-center hover:bg-white/20 transition-colors"
+                  >
+                    <ChevronLeft className="w-4 h-4 text-white/70" />
+                  </button>
+                )}
+                <BookImportSearch 
+                  onImportBook={handleImportBook} 
+                  selectedKey={importedData?.key} 
+                />
+              </div>
             </motion.div>
+          )}
+
+          {/* Slim collapsed tab */}
+          {!isReviewStep && !importPanelOpen && (
+            <motion.button
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 0.3 }}
+              type="button"
+              onClick={() => setImportPanelOpen(true)}
+              className="flex items-center gap-3 px-3 py-8 rounded-2xl bg-card/40 border border-white/5 hover:bg-white/[0.03] hover:border-white/10 transition-all shrink-0 cursor-pointer"
+            >
+              <ChevronRight className="w-4 h-4 text-white/60" />
+              <span 
+                className="text-[0.6rem] font-bold uppercase tracking-[0.3em] text-text-secondary"
+                style={{ writingMode: 'vertical-rl', textOrientation: 'mixed' }}
+              >
+                Import
+              </span>
+            </motion.button>
           )}
 
           <motion.div 
@@ -396,7 +449,7 @@ export default function AddBookPage() {
                 <p className="text-text-secondary text-base opacity-70">
                   {isReviewStep 
                     ? "Verify all information before publishing the book to the catalog."
-                    : `Step ${currentStep} of ${STEPS.length - 1} — ${STEPS.find(s => s.id === currentStep)?.description || ""}`
+                    : `Step ${currentStep} of ${STEPS.length - 1} - ${STEPS.find(s => s.id === currentStep)?.description || ""}`
                   }
                 </p>
               </div>

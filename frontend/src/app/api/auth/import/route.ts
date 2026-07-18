@@ -1,9 +1,8 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
+import { BACKEND_URL } from "@/lib/server-config";
 
-const BACKEND_BASE_URL = process.env.NEXT_PUBLIC_BACKEND_URL ?? "http://localhost:4000";
-
-export async function POST() {
+export async function POST(req: NextRequest) {
   const session = await auth();
 
   if (!session?.accessToken) {
@@ -13,12 +12,24 @@ export async function POST() {
     );
   }
 
+  let payload: unknown;
   try {
-    const response = await fetch(`${BACKEND_BASE_URL}/api/checkout/esewa/initiate`, {
+    payload = await req.json();
+  } catch {
+    return NextResponse.json(
+      { success: false, message: "Invalid JSON payload" },
+      { status: 400 },
+    );
+  }
+
+  try {
+    const response = await fetch(`${BACKEND_URL}/api/auth/import`, {
       method: "POST",
       headers: {
+        "Content-Type": "application/json",
         Authorization: `Bearer ${session.accessToken}`,
       },
+      body: JSON.stringify(payload),
       cache: "no-store",
     });
 
@@ -26,7 +37,7 @@ export async function POST() {
     return NextResponse.json(data, { status: response.status });
   } catch {
     return NextResponse.json(
-      { success: false, message: "Failed to reach checkout service" },
+      { success: false, message: "Failed to import data" },
       { status: 502 },
     );
   }

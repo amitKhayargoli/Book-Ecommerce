@@ -1,6 +1,5 @@
-import { Prisma, PrismaClient } from "@prisma/client";
-
-const prisma = new PrismaClient();
+import { Prisma } from "@prisma/client";
+import prisma from "../lib/prisma";
 
 export class CartRepository {
   async findBookById(bookId: string): Promise<{ id: string } | null> {
@@ -27,25 +26,29 @@ export class CartRepository {
   async findItemByCartAndBook(
     cartId: string,
     bookId: string,
-  ): Promise<{ id: string } | null> {
+  ): Promise<{ id: string; format: string | null } | null> {
     return prisma.cartItem.findFirst({
-      where: { cartId, bookId },
-      select: { id: true },
+      where: {
+        cartId,
+        bookId,
+      },
+      select: { id: true, format: true },
     });
   }
 
-  async createItem(cartId: string, bookId: string): Promise<{ id: string }> {
+  async createItem(cartId: string, bookId: string, format?: string): Promise<{ id: string }> {
     return prisma.cartItem.create({
-      data: { cartId, bookId },
+      data: { cartId, bookId, format },
       select: { id: true },
     });
   }
 
-  async removeItem(cartId: string, bookId: string): Promise<number> {
-    const result = await prisma.cartItem.deleteMany({
-      where: { cartId, bookId },
-    });
-
+  async removeItem(cartId: string, bookId: string, format?: string | null): Promise<number> {
+    const where: { cartId: string; bookId: string; format?: string | null } = { cartId, bookId };
+    if (format !== undefined) {
+      where.format = format ?? null;
+    }
+    const result = await prisma.cartItem.deleteMany({ where });
     return result.count;
   }
 
@@ -59,6 +62,7 @@ export class CartRepository {
       select: {
         id: true,
         bookId: true,
+        format: true,
         quantity: true,
         createdAt: true,
         book: {
@@ -67,6 +71,9 @@ export class CartRepository {
             title: true,
             price: true,
             coverImage: true,
+            formatPrices: {
+              select: { format: true, price: true },
+            },
             author: {
               select: {
                 id: true,

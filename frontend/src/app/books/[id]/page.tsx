@@ -7,9 +7,11 @@ import {
   hanldeGetBookById,
 } from "@/app/admin/books/actions/book-actions";
 import { getReviewsAction } from "./actions/review-actions";
-import WishlistButton from "./components/WishlistButton";
+import ImageGallery from "./components/ImageGallery";
 import AddReviewButton from "./components/AddReviewButton";
-import AddToCartButton from "./components/AddToCartButton";
+import ReviewSortDropdown from "./components/ReviewSortDropdown";
+import ReviewStarFilter from "./components/ReviewStarFilter";
+import BookFormatSection from "./components/BookFormatSection";
 
 interface ApiBookDetail {
   id: string;
@@ -19,15 +21,21 @@ interface ApiBookDetail {
   stock: number;
   coverImage?: string;
   mockupImage?: string | null;
+  previewImages?: string[];
   reviewCount: number;
+  discountPrice?: number | null;
   author?: { name?: string };
   genres?: Array<{ name?: string }>;
+  language?: string | null;
+  publishedAt?: string | null;
+  formatPrices?: Array<{ format: string; price: number }>;
 }
 
 interface ApiBookListItem {
   id: string;
   title: string;
   price?: number;
+  discountPrice?: number | null;
   coverImage?: string;
   author?: { name?: string };
 }
@@ -36,6 +44,7 @@ interface ApiReviewItem {
   id: string;
   rating: number;
   comment: string | null;
+  images: string[];
   createdAt: string;
   user: {
     id: string;
@@ -87,6 +96,7 @@ function isApiReviewList(value: unknown): value is ApiReviewItem[] {
       id?: unknown;
       rating?: unknown;
       comment?: unknown;
+      images?: unknown;
       createdAt?: unknown;
       user?: { id?: unknown; name?: unknown };
       bookId?: unknown;
@@ -96,6 +106,8 @@ function isApiReviewList(value: unknown): value is ApiReviewItem[] {
       typeof candidate.id === "string" &&
       typeof candidate.rating === "number" &&
       (typeof candidate.comment === "string" || candidate.comment === null) &&
+      Array.isArray(candidate.images) &&
+      candidate.images.every((img: unknown) => typeof img === "string") &&
       typeof candidate.createdAt === "string" &&
       typeof candidate.user?.id === "string" &&
       typeof candidate.user?.name === "string" &&
@@ -115,6 +127,10 @@ function formatReviewDate(value: string): string {
   }).format(date);
 }
 
+function isLocalUpload(url: string): boolean {
+  return url.startsWith("http://localhost:4000/") || url.startsWith("http://backend:3001/");
+}
+
 function formatPrice(value: number): string {
   return new Intl.NumberFormat("en-US", {
     style: "currency",
@@ -125,10 +141,13 @@ function formatPrice(value: number): string {
 
 export default async function BookProductPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ sortBy?: string; sortOrder?: string; rating?: string }>;
 }) {
   const { id } = await params;
+  const { sortBy, sortOrder, rating: ratingFilter } = await searchParams;
   const result = await hanldeGetBookById(id);
 
   if (!result.success || !isApiBookDetail(result.data)) {
@@ -139,11 +158,13 @@ export default async function BookProductPage({
 
   const booksResult = await handleGetBooks();
   const allBooks = isApiBookList(booksResult.data) ? booksResult.data : [];
-  const reviewsResult = await getReviewsAction(bookData.id);
-  const reviews =
+  const reviewsResult = await getReviewsAction(bookData.id, 1, 100, sortBy, sortOrder);
+  const allReviews =
     reviewsResult.success && isApiReviewList(reviewsResult.data)
       ? reviewsResult.data
       : [];
+
+  // Compute stats from the FULL unfiltered review list
   const totalReviewsFromMeta =
     typeof (reviewsResult.meta as { total?: unknown } | undefined)?.total ===
     "number"
@@ -151,36 +172,22 @@ export default async function BookProductPage({
       : 0;
   const totalReviews = Math.max(
     totalReviewsFromMeta,
-    reviews.length,
+    allReviews.length,
     bookData.reviewCount,
   );
 
-  const relatedBooks = allBooks
-    .filter((candidate) => candidate.id !== bookData.id)
-    .slice(0, 4);
-
-  const images = [bookData.coverImage, bookData.mockupImage]
-    .filter((image): image is string => Boolean(image))
-    .concat([
-      "/books/scifi.png",
-      "/books/fantasy.png",
-      "/books/mystery.png",
-      "/books/romance.png",
-    ])
-    .slice(0, 4);
-
-  const averageRating =
-    reviews.length > 0
+  const fullAverageRating =
+    allReviews.length > 0
       ? Number(
           (
-            reviews.reduce((sum, review) => sum + review.rating, 0) /
-            reviews.length
+            allReviews.reduce((sum, review) => sum + review.rating, 0) /
+            allReviews.length
           ).toFixed(1),
         )
       : 0;
-  const roundedAverageRating = Math.round(averageRating);
+  const roundedAverageRating = Math.round(fullAverageRating);
   const ratingBreakdown = [5, 4, 3, 2, 1].map((star) => {
-    const count = reviews.filter((review) => review.rating === star).length;
+    const count = allReviews.filter((review) => review.rating === star).length;
     return {
       star,
       count,
@@ -188,12 +195,41 @@ export default async function BookProductPage({
     };
   });
 
+  // Apply rating filter if set via search params (for the displayed list only)
+  let reviews = allReviews;
+  if (ratingFilter) {
+    const starFilter = Number(ratingFilter);
+    if (starFilter >= 1 && starFilter <= 5) {
+      reviews = allReviews.filter((r) => r.rating === starFilter);
+    }
+  }
+
+  const relatedBooks = allBooks
+    .filter((candidate) => candidate.id !== bookData.id)
+    .slice(0, 4);
+
+  // Use previewImages from backend (populated from Google Books on import),
+  // fall back to coverImage + mockupImage, then placeholders
+  const images = bookData.previewImages && bookData.previewImages.length > 0
+    ? bookData.previewImages.slice(0, 4)
+    : [bookData.coverImage, bookData.mockupImage]
+        .filter((image): image is string => Boolean(image))
+        .concat([
+          "/books/scifi.png",
+          "/books/fantasy.png",
+          "/books/mystery.png",
+          "/books/romance.png",
+        ])
+        .slice(0, 4);
+
+  const formatPrices = bookData.formatPrices ?? [];
+
   const book = {
     id: bookData.id,
     title: bookData.title,
     author: bookData.author?.name ?? "Unknown author",
     price: formatPrice(bookData.price),
-    rating: averageRating,
+    rating: fullAverageRating,
     roundedRating: roundedAverageRating,
     reviewCount: totalReviews,
     description: bookData.description,
@@ -202,6 +238,9 @@ export default async function BookProductPage({
     genres: (bookData.genres ?? [])
       .map((genre) => genre.name)
       .filter((name): name is string => Boolean(name)),
+    language: bookData.language ?? undefined,
+    publishedAt: bookData.publishedAt ?? undefined,
+    formatPrices,
   };
 
   return (
@@ -241,36 +280,7 @@ export default async function BookProductPage({
         {/* Hero Section: Media & Details */}
         <section className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-20 mb-24">
           {/* Left Column: Images */}
-          <div className="flex flex-col gap-4">
-            <div className="bg-card w-full aspect-[3/4] md:aspect-square rounded-xl flex items-center justify-center p-8 relative overflow-hidden group">
-              <div className="absolute inset-0 bg-gradient-to-tr from-scifi/5 to-transparent opacity-50"></div>
-              <Image
-                src={book.images[0]}
-                alt={book.title}
-                width={400}
-                height={600}
-                className="object-contain w-full h-full max-h-[600px] z-10 drop-shadow-[0_20px_50px_rgba(0,0,0,0.5)] transition-transform duration-700 group-hover:scale-105"
-                priority
-              />
-            </div>
-
-            <div className="grid grid-cols-4 gap-4">
-              {book.images.map((img, idx) => (
-                <button
-                  key={idx}
-                  className="bg-card aspect-square rounded-lg flex items-center justify-center p-2 relative overflow-hidden border border-white/5 hover:border-white/20 transition-all"
-                >
-                  <Image
-                    src={img}
-                    alt={`Thumbnail ${idx + 1}`}
-                    width={100}
-                    height={150}
-                    className="object-contain w-full h-full max-h-[100px] drop-shadow-[0_10px_20px_rgba(0,0,0,0.4)]"
-                  />
-                </button>
-              ))}
-            </div>
-          </div>
+          <ImageGallery images={book.images} title={book.title} />
 
           {/* Right Column: Product Info */}
           <div className="flex flex-col justify-start pt-4 lg:pr-10">
@@ -279,29 +289,6 @@ export default async function BookProductPage({
               {book.title}
             </h1>
 
-            <div className="text-3xl font-semibold mb-6 flex items-center gap-6">
-              {book.price}
-
-              <div className="flex items-center gap-2 text-sm font-normal text-text-secondary border-l border-white/10 pl-6">
-                <div className="flex text-romance">
-                  {[...Array(5)].map((_, i) => (
-                    <Star
-                      key={i}
-                      className={`w-4 h-4 ${
-                        i < book.roundedRating
-                          ? "fill-romance text-romance"
-                          : "fill-transparent text-romance/40"
-                      }`}
-                    />
-                  ))}
-                </div>
-                <span>{book.rating}</span>
-                <span className="text-text-secondary/60">
-                  ({book.reviewCount} reviews)
-                </span>
-              </div>
-            </div>
-
             <div className="mb-8 border-t border-white/10 pt-8">
               <h3 className="font-semibold text-lg mb-3">Description</h3>
               <p className="text-text-secondary leading-relaxed text-base">
@@ -309,37 +296,20 @@ export default async function BookProductPage({
               </p>
             </div>
 
-            {/* Selectors */}
-            <div className="mb-8">
-              <div className="flex justify-between items-center mb-3">
-                <span className="font-medium text-sm text-text-secondary uppercase tracking-widest">
-                  Format
-                </span>
-                <button className="text-xs text-text-secondary hover:text-white underline decoration-white/30 underline-offset-4">
-                  Size Guide
-                </button>
-              </div>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                {book.formats.map((format, idx) => (
-                  <button
-                    key={format}
-                    className={`py-3 px-4 rounded-md border text-sm font-medium transition-all ${
-                      idx === 0
-                        ? "border-romance bg-romance/10 text-white"
-                        : "border-white/10 bg-card hover:bg-white/5 hover:border-white/30 text-text-secondary"
-                    }`}
-                  >
-                    {format}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Actions */}
-            <div className="flex gap-4 items-center">
-              <AddToCartButton bookId={book.id} />
-              <WishlistButton bookId={book.id} />
-            </div>
+            {/* Selectors + Actions */}
+            <BookFormatSection
+              formats={book.formats}
+              formatPrices={book.formatPrices}
+              basePrice={bookData.price}
+              rating={book.rating}
+              roundedRating={book.roundedRating}
+              reviewCount={book.reviewCount}
+              language={book.language}
+              publishedAt={book.publishedAt}
+              genres={book.genres}
+              author={book.author}
+              bookId={book.id}
+            />
 
             {/* Extra Snippet */}
             <div className="mt-8 pt-8 border-t border-white/10 text-sm text-text-secondary">
@@ -379,6 +349,7 @@ export default async function BookProductPage({
                     alt={relatedBook.title}
                     fill
                     className="object-contain drop-shadow-[0_10px_20px_rgba(0,0,0,0.4)] transition-transform duration-500 group-hover:scale-105 group-hover:rotate-1"
+                    unoptimized={isLocalUpload(relatedBook.coverImage || book.images[index % book.images.length])}
                   />
                 </div>
                 <h3 className="font-display font-semibold mb-1 w-full truncate text-center">
@@ -439,44 +410,13 @@ export default async function BookProductPage({
                 </div>
               </div>
 
-              {/* Review Bars */}
-              <div className="flex flex-col gap-3">
-                {ratingBreakdown.map((row) => (
-                  <div
-                    key={row.star}
-                    className="flex items-center gap-4 text-sm font-medium text-text-secondary"
-                  >
-                    <div className="flex items-center gap-1 w-8">
-                      <span>{row.star}</span>
-                      <Star className="w-3 h-3 fill-current" />
-                    </div>
-                    <div className="flex-1 h-2 bg-white/10 rounded-full overflow-hidden">
-                      <div
-                        className="h-full bg-white relative rounded-full"
-                        style={{ width: `${row.pct}%` }}
-                      ></div>
-                    </div>
-                    <div className="w-10 text-right">{row.count}</div>
-                  </div>
-                ))}
-              </div>
+              {/* Review Bars (clickable filter) */}
+              <ReviewStarFilter breakdown={ratingBreakdown} />
 
-              {/* Filters (Simplified) */}
+              {/* Filters (Collapsed into star filter above) */}
               <div className="border-t border-white/10 pt-8 mt-4">
                 <h3 className="font-semibold mb-6">Review Filter</h3>
                 <div className="flex flex-col gap-4">
-                  <div className="flex items-center justify-between cursor-pointer group">
-                    <span className="text-text-secondary group-hover:text-white transition-colors">
-                      Rating
-                    </span>
-                    <ChevronRight className="w-4 h-4 text-text-secondary group-hover:text-white transition-colors" />
-                  </div>
-                  <div className="flex items-center justify-between cursor-pointer group">
-                    <span className="text-text-secondary group-hover:text-white transition-colors">
-                      Book Format
-                    </span>
-                    <ChevronRight className="w-4 h-4 text-text-secondary group-hover:text-white transition-colors" />
-                  </div>
                   <div className="flex items-center justify-between cursor-pointer group">
                     <span className="text-text-secondary group-hover:text-white transition-colors">
                       Has Photos
@@ -497,12 +437,7 @@ export default async function BookProductPage({
                 </div>
                 <div className="flex gap-4">
                   <span className="text-sm text-text-secondary">Sort by:</span>
-                  <select className="bg-card-hover text-sm font-medium outline-none cursor-pointer px-3 py-2 rounded-lg border border-white/10">
-                    <option className="bg-card-hover text-white">Most Relevant</option>
-                    <option className="bg-card-hover text-white">Newest First</option>
-                    <option className="bg-card-hover text-white">Highest Rating</option>
-                    <option className="bg-card-hover text-white">Lowest Rating</option>
-                  </select>
+                  <ReviewSortDropdown />
                 </div>
               </div>
 
@@ -537,11 +472,31 @@ export default async function BookProductPage({
                       </span>
                     </div>
 
-                    <p className="text-text-secondary leading-relaxed mb-6">
+                    <p className="text-text-secondary leading-relaxed mb-4">
                       {review.comment && review.comment.trim().length > 0
                         ? review.comment
                         : "No written comment provided."}
                     </p>
+
+                    {/* Review Images */}
+                    {review.images && review.images.length > 0 && (
+                      <div className="flex flex-wrap gap-2 mb-4">
+                        {review.images.map((imgUrl, imgIdx) => (
+                          <div
+                            key={imgIdx}
+                            className="relative w-20 h-20 rounded-lg overflow-hidden border border-white/10"
+                          >
+                            <Image
+                              src={imgUrl}
+                              alt={`Review photo ${imgIdx + 1}`}
+                              fill
+                              className="object-cover"
+                              unoptimized={isLocalUpload(imgUrl)}
+                            />
+                          </div>
+                        ))}
+                      </div>
+                    )}
 
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-3">

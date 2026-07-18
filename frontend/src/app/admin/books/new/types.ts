@@ -1,11 +1,21 @@
 export type BookStatus = "DRAFT" | "PUBLISHED";
 
+export interface ExtraImages {
+  smallThumbnail: string | null;
+  thumbnail: string | null;
+  small: string | null;
+  medium: string | null;
+  large: string | null;
+  extraLarge: string | null;
+}
+
 export interface OpenLibraryResult {
   key: string;
   title: string;
   authors: string[];
   year: number | null;
   coverImage: string | null;
+  extraImages?: ExtraImages | null;
   isbn: string | null;
   publisher: string | null;
   language: string | null;
@@ -20,10 +30,7 @@ export interface BookFormData {
   slug: string;
   description: string;
   author: string;
-  publisher: string;
-  isbn: string;
   language: string;
-  pages: string | number; // allow string initially for controlled input
   publishedYear: string | number;
   genres: string[];
   subjects: string[];
@@ -36,6 +43,7 @@ export interface BookFormData {
   coverImageUrl: string;
   mockupImageUrl: string;
   previewImages: string[];
+  formatPrices: { format: string; price: string }[];
 }
 
 export interface ValidationErrors {

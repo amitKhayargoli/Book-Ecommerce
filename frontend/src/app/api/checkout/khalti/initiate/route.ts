@@ -1,9 +1,8 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
+import { BACKEND_URL } from "@/lib/server-config";
 
-const BACKEND_BASE_URL = process.env.NEXT_PUBLIC_BACKEND_URL ?? "http://localhost:4000";
-
-export async function POST() {
+export async function POST(request: Request) {
   const session = await auth();
 
   if (!session?.accessToken) {
@@ -14,11 +13,15 @@ export async function POST() {
   }
 
   try {
-    const response = await fetch(`${BACKEND_BASE_URL}/api/checkout/khalti/initiate`, {
+    const body = await request.json();
+
+    const response = await fetch(`${BACKEND_URL}/api/checkout/khalti/initiate`, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${session.accessToken}`,
+        "Content-Type": "application/json",
       },
+      body: JSON.stringify(body),
       cache: "no-store",
     });
 

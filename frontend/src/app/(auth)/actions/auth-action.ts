@@ -7,6 +7,7 @@ import {
   AuthUser,
   LoginPayload,
   RegisterPayload,
+  RegisterResponse,
 } from "@/lib/api/auth";
 
 export interface ServerActionResult<T> {
@@ -42,7 +43,7 @@ function getErrorMessage(err: unknown, fallback: string): string {
 
 export async function handleRegister(
   payload: RegisterPayload,
-): Promise<ServerActionResult<AuthTokensResponse>> {
+): Promise<ServerActionResult<RegisterResponse>> {
   try {
     const response = await authEndpoints.register(payload);
     return {
@@ -62,9 +63,10 @@ export async function handleLogin(
 ): Promise<ServerActionResult<AuthTokensResponse>> {
   try {
     const response = await authEndpoints.login(payload);
+    // Cast needed because login can also return MfaChallengeResponse
     return {
       success: response.data.success,
-      data: response.data.data,
+      data: response.data.data as AuthTokensResponse | undefined,
     };
   } catch (err: unknown) {
     return {

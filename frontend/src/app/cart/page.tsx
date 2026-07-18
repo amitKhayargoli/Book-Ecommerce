@@ -3,15 +3,17 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { ShoppingCart } from "lucide-react";
 import { auth } from "@/auth";
+import { BACKEND_URL } from "@/lib/server-config";
 import RemoveCartItemButton from "./components/RemoveCartItemButton";
 import ProceedToCheckoutButton from "./components/ProceedToCheckoutButton";
 
-const BACKEND_BASE_URL =
-  process.env.NEXT_PUBLIC_BACKEND_URL ?? "http://localhost:4000";
+const BACKEND_BASE_URL = BACKEND_URL;
 
 interface CartPageItem {
   id: string;
   bookId: string;
+  format: string | null;
+  unitPrice: number;
   quantity: number;
   createdAt: string;
   book: {
@@ -79,7 +81,7 @@ export default async function CartPage() {
           typeof payload.data?.summary?.subtotal === "number"
             ? payload.data.summary.subtotal
             : items.reduce(
-                (acc, item) => acc + item.book.price * item.quantity,
+                (acc, item) => acc + (item.unitPrice ?? item.book.price) * item.quantity,
                 0,
               );
       }
@@ -161,13 +163,23 @@ export default async function CartPage() {
                     <p className="text-text-secondary mt-1">
                       {item.book.author.name}
                     </p>
+                    {item.format && (
+                      <p className="text-romance text-xs mt-1 font-medium">
+                        {item.format}
+                      </p>
+                    )}
                     <p className="text-text-secondary text-sm mt-2">
                       Quantity: {item.quantity}
                     </p>
                   </div>
 
-                  <div className="flex items-center font-semibold text-lg text-white md:justify-end">
-                    {formatPrice(item.book.price * item.quantity)}
+                  <div className="flex flex-col items-end font-semibold text-lg text-white md:justify-end">
+                    <span>{formatPrice((item.unitPrice ?? item.book.price) * item.quantity)}</span>
+                    {(item.unitPrice ?? item.book.price) !== item.book.price && (
+                      <span className="text-xs text-text-secondary line-through">
+                        {formatPrice(item.book.price * item.quantity)}
+                      </span>
+                    )}
                   </div>
 
                   <div className="flex items-center md:justify-end">

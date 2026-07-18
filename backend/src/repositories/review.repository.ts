@@ -1,8 +1,7 @@
-import { PrismaClient } from "@prisma/client";
-import { CreateReviewDto, ReviewQueryDto } from "../dto/review.dto";
+import prisma from "../lib/prisma";
+import { CreateReviewDto, ReviewQueryDto, UpdateReviewDto } from "../dto/review.dto";
 import { IReviewRepository, ReviewRecord, reviewSelect } from "../types/review.types";
 
-const prisma = new PrismaClient();
 
 export class ReviewRepository implements IReviewRepository {
   async findManyByBookId(bookId: string, query: ReviewQueryDto): Promise<{ reviews: ReviewRecord[]; total: number }> {
@@ -38,6 +37,19 @@ export class ReviewRepository implements IReviewRepository {
         bookId,
         rating: dto.rating,
         comment: dto.comment,
+        images: dto.images ?? [],
+      },
+      select: reviewSelect,
+    });
+  }
+
+  async update(id: string, dto: UpdateReviewDto): Promise<ReviewRecord> {
+    return prisma.review.update({
+      where: { id },
+      data: {
+        ...(dto.rating !== undefined && { rating: dto.rating }),
+        ...(dto.comment !== undefined && { comment: dto.comment }),
+        ...(dto.images !== undefined && { images: dto.images }),
       },
       select: reviewSelect,
     });
@@ -50,6 +62,13 @@ export class ReviewRepository implements IReviewRepository {
   async findById(id: string): Promise<ReviewRecord | null> {
     return prisma.review.findUnique({
       where: { id },
+      select: reviewSelect,
+    });
+  }
+
+  async findByUserAndBook(userId: string, bookId: string): Promise<ReviewRecord | null> {
+    return prisma.review.findFirst({
+      where: { userId, bookId },
       select: reviewSelect,
     });
   }

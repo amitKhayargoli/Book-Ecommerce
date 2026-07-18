@@ -54,7 +54,7 @@ export function SubjectChips({ subjects, onChange }: SubjectChipsProps) {
           value={inputValue}
           onChange={(e) => setInputValue(e.target.value)}
           onKeyDown={handleKeyDown}
-          placeholder="Type subject and press Enter"
+          placeholder="Type a tag and press Enter"
           className="flex-1 px-5 py-3 bg-white/[0.03] border border-white/5 rounded-2xl text-sm text-white focus:outline-none focus:ring-2 focus:ring-white/10 focus:border-white/20 transition-all placeholder:text-white/20 font-medium cursor-none"
         />
         <button
