@@ -111,4 +111,8 @@ export const authEndpoints = {
   // Change password
   changePassword: (payload: { currentPassword: string; newPassword: string }, config?: AxiosRequestConfig) =>
     api.put<AuthResponse<{ message: string }>>("/api/auth/change-password", payload, config),
+
+  // Session management
+  revokeSessions: (config?: AxiosRequestConfig) =>
+    api.post<AuthResponse<{ message: string }>>("/api/auth/revoke-sessions", {}, config),
 };

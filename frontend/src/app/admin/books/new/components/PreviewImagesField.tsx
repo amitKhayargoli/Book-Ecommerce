@@ -2,7 +2,7 @@
 
 import { Plus, X, Image as ImageIcon, Upload } from "lucide-react";
 import { useState, useRef } from "react";
-import { useSession } from "next-auth/react";
+import { useSession } from "@/lib/session-context";
 import { uploadImage } from "@/lib/api/upload";
 
 interface PreviewImagesFieldProps {

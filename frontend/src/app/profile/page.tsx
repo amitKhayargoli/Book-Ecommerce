@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback, useRef } from "react";
-import { useSession } from "next-auth/react";
+import { useSession } from "@/lib/session-context";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -73,6 +73,10 @@ export default function ProfilePage() {
   const [stepUpPassword, setStepUpPassword] = useState("");
   const [stepUpLoading, setStepUpLoading] = useState(false);
   const [stepUpAction, setStepUpAction] = useState<string | null>(null);
+
+  // ── Revoke sessions state ───────────────────────────────────────-
+  const [revokeConfirming, setRevokeConfirming] = useState(false);
+  const [revokeLoading, setRevokeLoading] = useState(false);
 
   // Redirect to login if not authenticated
   useEffect(() => {
@@ -505,7 +509,7 @@ export default function ProfilePage() {
                     <div>
                       <p className="text-xs text-text-secondary">Role</p>
                       <p className="text-sm text-white font-medium capitalize">
-                        {session?.user?.role?.toLowerCase() || "-"}
+                        {session?.user?.role === "ADMIN" ? "Admin" : session?.user?.role?.toLowerCase() || "-"}
                       </p>
                     </div>
                   </div>
@@ -642,34 +646,6 @@ export default function ProfilePage() {
                           alt="TOTP QR Code"
                           className="w-48 h-48"
                         />
-                      </div>
-                    </div>
-
-                    <div className="bg-white/[0.03] border border-white/[0.06] rounded-xl p-4">
-                      <p className="text-xs text-text-secondary mb-2 font-medium uppercase tracking-wider">
-                        Or enter manually
-                      </p>
-                      <div className="flex items-center gap-2">
-                        <code className="flex-1 text-xs font-mono text-white/70 bg-black/30 rounded-lg px-3 py-2 truncate select-all">
-                          {setupData.secret}
-                        </code>
-                        <button
-                          type="button"
-                          onClick={async () => {
-                            try {
-                              await navigator.clipboard.writeText(setupData.secret);
-                            } catch { /* clipboard not available */ }
-                            setCopied(true);
-                            setTimeout(() => setCopied(false), 2000);
-                          }}
-                          className={`shrink-0 px-3 py-2 text-xs font-medium rounded-lg transition-all duration-200 ${
-                            copied
-                              ? "text-emerald-400 bg-emerald-500/10"
-                              : "text-white/60 hover:text-white bg-white/5 hover:bg-white/10"
-                          }`}
-                        >
-                          {copied ? "Copied!" : "Copy"}
-                        </button>
                       </div>
                     </div>
 
@@ -1037,6 +1013,84 @@ export default function ProfilePage() {
                     </button>
                   </motion.div>
                 )}
+
+                {/* ───── Revoke All Sessions ────────────────────── */}
+                <div className="pt-6 border-t border-white/[0.06] mt-6">
+                  <div className="flex items-start gap-4 mb-4">
+                    <div className="w-12 h-12 rounded-xl bg-white/5 flex items-center justify-center shrink-0">
+                      <RefreshCw className="w-6 h-6 text-white/60" />
+                    </div>
+                    <div>
+                      <h2 className="text-lg font-semibold text-foreground mb-1">
+                        Active Sessions
+                      </h2>
+                      <p className="text-sm text-text-secondary leading-relaxed">
+                        If you suspect someone else has accessed your account, you can
+                        revoke all active sessions. This will sign out every device,
+                        including this one.
+                      </p>
+                    </div>
+                  </div>
+
+                  {revokeConfirming ? (
+                    <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-4">
+                      <p className="text-sm text-red-300 font-medium mb-3">
+                        Are you sure? You will be signed out of all devices and need to
+                        sign in again.
+                      </p>
+                      <div className="flex gap-3">
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            if (!session?.accessToken) return;
+                            setRevokeLoading(true);
+                            try {
+                              await authEndpoints.revokeSessions({
+                                headers: { Authorization: `Bearer ${session.accessToken}` },
+                              });
+                              // Clear local session cookie and redirect
+                              await fetch("/api/auth/logout", { method: "POST" });
+                              router.push("/login?revoked=true");
+                            } catch {
+                              setMfaError("Failed to revoke sessions. Please try again.");
+                              setRevokeLoading(false);
+                            }
+                          }}
+                          disabled={revokeLoading}
+                          className="flex-1 bg-red-500/80 hover:bg-red-500 text-white font-semibold font-sans rounded-xl h-11 flex items-center justify-center gap-2 transition-all duration-300 disabled:opacity-50 text-sm"
+                        >
+                          {revokeLoading ? (
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                          ) : (
+                            <>
+                              <RefreshCw className="w-4 h-4" />
+                              Yes, Revoke All Sessions
+                            </>
+                          )}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setRevokeConfirming(false);
+                          }}
+                          disabled={revokeLoading}
+                          className="flex-1 bg-white/5 hover:bg-white/10 text-text-secondary hover:text-white font-sans font-medium rounded-xl h-11 flex items-center justify-center transition-all duration-300 text-sm"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => setRevokeConfirming(true)}
+                      className="w-full bg-white/5 hover:bg-red-500/10 text-text-secondary hover:text-red-400 font-sans font-medium rounded-xl h-12 flex items-center justify-center gap-2 border border-white/[0.06] hover:border-red-500/30 transition-all duration-300"
+                    >
+                      <RefreshCw className="w-4 h-4" />
+                      Revoke All Sessions
+                    </button>
+                  )}
+                </div>
 
                 {/* Inline error */}
                 {mfaError && mfaState !== "error" && (

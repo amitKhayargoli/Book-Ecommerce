@@ -9,7 +9,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { useSession } from "next-auth/react";
+import { useSession } from "@/lib/session-context";
 
 interface CartCountPayload {
   itemsCount: number;

@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { signOut, useSession } from "next-auth/react";
+import { useSession } from "@/lib/session-context";
 import { useCart } from "./CartProvider";
 
 const adminLinks = [
@@ -14,6 +14,7 @@ const adminLinks = [
   { label: "Audit Logs", href: "/admin/audit-logs" },
   { label: "IP Access", href: "/admin/ip-access" },
   { label: "Sessions", href: "/admin/sessions" },
+  { label: "Profile", href: "/admin/profile" },
 ];
 
 const navLeft = ["Books", "Writers"];
@@ -44,7 +45,7 @@ export default function Navbar() {
     >
       <nav className="max-w-[1400px] mx-auto px-6 md:px-10 h-16 flex items-center justify-between">
         {/* Left nav - show admin links or user links based on current page */}
-        <div className="hidden md:flex items-center gap-8">
+        <div className="hidden md:flex items-center gap-8 flex-1 justify-start">
           {isAdminPage
             ? adminLinks.map((link) => {
                 const isActive = pathname === link.href ||
@@ -82,8 +83,8 @@ export default function Navbar() {
               })}
         </div>
 
-        {/* Center logo */}
-        <Link href={isAdminPage ? "/admin" : "/"} className="flex items-center gap-2 ml-40">
+        {/* Center logo - always centered */}
+        <Link href={isAdminPage ? "/admin" : "/"} className="flex items-center gap-2 shrink-0">
           <div className="grid grid-cols-2 gap-[3px]">
             <div className="w-2.5 h-2.5 rounded-full bg-white" />
             <div className="w-2.5 h-2.5 rounded-full bg-white" />
@@ -93,10 +94,13 @@ export default function Navbar() {
         </Link>
 
         {/* Right nav */}
-        <div className="flex items-center gap-6">
+        <div className="flex items-center gap-6 flex-1 justify-end">
           {isAdminPage ? (
             <button
-              onClick={() => signOut({ callbackUrl: "/login" })}
+              onClick={async () => {
+                await fetch("/api/auth/logout", { method: "POST" });
+                window.location.href = "/login";
+              }}
               className="relative hidden md:block text-sm text-text-secondary hover:text-white transition-colors duration-300 group"
             >
               Logout
@@ -135,7 +139,10 @@ export default function Navbar() {
                     <span className="absolute -bottom-1 left-0 w-0 h-[1px] bg-white group-hover:w-full transition-all duration-300" />
                   </Link>
                   <button
-                    onClick={() => signOut({ callbackUrl: "/login" })}
+                    onClick={async () => {
+                      await fetch("/api/auth/logout", { method: "POST" });
+                      window.location.href = "/login";
+                    }}
                     className="relative hidden md:block text-sm text-text-secondary hover:text-white transition-colors duration-300 group"
                   >
                     Logout
