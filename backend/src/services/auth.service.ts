@@ -370,7 +370,7 @@ export class AuthService {
   ): Promise<LoginResult> {
     const normalizedEmail = dto.email.toLowerCase();
 
-    // ─── Verify the Google ID token server-side ─────────────────────
+    // ─── Verify the Google ID token server-side ────────────────────
     try {
       const ticket = await googleClient.verifyIdToken({
         idToken: dto.idToken,

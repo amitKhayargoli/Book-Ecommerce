@@ -25,7 +25,15 @@ export interface CheckoutFailureResponse {
 }
 
 export interface ICheckoutService {
-  initiateKhalti(userId: string, addressId?: string): Promise<CheckoutInitiationResponse>;
-  verifyKhaltiSuccess(pidx: string, purchaseOrderId?: string): Promise<CheckoutVerificationResponse>;
+  initiateKhalti(
+    userId: string,
+    addressId?: string,
+    customerInfo?: { name?: string; email?: string },
+  ): Promise<CheckoutInitiationResponse>;
+  verifyKhaltiSuccess(
+    pidx: string,
+    purchaseOrderId?: string,
+    userId?: string,
+  ): Promise<CheckoutVerificationResponse>;
   handleKhaltiFailure(query: Record<string, unknown>): Promise<CheckoutFailureResponse>;
 }

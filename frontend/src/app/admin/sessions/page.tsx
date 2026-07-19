@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { getRecentSessions, createIpAccessRuleFromSession } from "./actions";
+import { cleanIp } from "@/lib/ip";
 
 interface RecentSession {
   ip: string;
@@ -332,7 +333,7 @@ export default function SessionsPage() {
 
                         <div className="flex items-center gap-2 mt-1 flex-wrap">
                           <span className="font-mono text-xs text-blue-300/80 bg-blue-500/10 px-2 py-0.5 rounded-md border border-blue-500/10">
-                            {session.ip}
+                            {cleanIp(session.ip)}
                           </span>
                           {session.email && (
                             <span className="flex items-center gap-1 text-xs text-text-secondary">

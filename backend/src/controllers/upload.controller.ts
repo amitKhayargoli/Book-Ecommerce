@@ -8,8 +8,10 @@ export class UploadController {
    * Accepts a single image file via multipart/form-data (field name: "image").
    * Returns the public URL of the uploaded file.
    *
-   * NOTE: SVG files are rejected at the multer type-check level (see upload.routes.ts).
-   * This controller only handles already-validated image types (JPEG, PNG, etc.).
+   * NOTE: SVG files are currently accepted at the multer type-check level (see
+   * upload.routes.ts). SVG content is stored as-is and served raw — this is a
+   * deliberate temporary state for demonstration purposes and should be
+   * re-hardened (reject SVG or sanitize its content) before deployment.
    */
   uploadImage = async (req: Request, res: Response): Promise<void> => {
     if (!req.file) {

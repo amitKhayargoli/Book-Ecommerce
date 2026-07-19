@@ -6,7 +6,7 @@ import { validate } from "../middlewares/validate.middleware";
 import { asyncHandler } from "../middlewares/asyncHandler";
 import {
   KhaltiInitiateSchema,
-  KhaltiSuccessQuerySchema,
+  KhaltiVerifySchema,
 } from "../dto/checkout.dto";
 
 const router = Router();
@@ -20,10 +20,12 @@ router.post(
   asyncHandler(controller.initiateKhalti),
 );
 
-router.get(
-  "/khalti/success",
-  validate(KhaltiSuccessQuerySchema, "query"),
-  asyncHandler(controller.verifyKhaltiSuccess),
+router.post(
+  "/khalti/verify",
+  authMiddleware,
+  customerMiddleware,
+  validate(KhaltiVerifySchema),
+  asyncHandler(controller.verifyKhalti),
 );
 
 router.get("/khalti/failure", asyncHandler(controller.handleKhaltiFailure));

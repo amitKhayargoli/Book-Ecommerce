@@ -129,6 +129,9 @@ router.get("/orders", authMiddleware, customerMiddleware, asyncHandler(controlle
 router.get("/export", authMiddleware, customerMiddleware, asyncHandler(controller.exportData));
 router.post("/import", authMiddleware, customerMiddleware, validate(ImportDataSchema), asyncHandler(controller.importData));
 
+// ─── Customer Activity Logs ────────────────────────────────────────
+router.get("/me/activity-logs", authMiddleware, asyncHandler(controller.getMyActivityLogs));
+
 // ─── Admin Routes ──────────────────────────────────────────────────
 router.get("/audit-logs", authMiddleware, adminMiddleware, asyncHandler(controller.getAuditLogs));
 

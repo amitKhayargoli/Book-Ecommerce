@@ -21,18 +21,16 @@ import {
   Smartphone,
   UserCheck,
   Clock,
+  History,
 } from "lucide-react";
-import {
-  AuditLogEntry,
-  AuditEventType,
-  fetchAuditLogs,
-} from "../actions/audit-actions";
+import { authEndpoints, AuditLogEntry } from "@/lib/api/auth";
 import { cleanIp } from "@/lib/ip";
+import { useSession } from "@/lib/session-context";
 
 // ─── Event type definitions with labels, icons, and color schemes ──────
 
 interface EventDef {
-  value: AuditEventType;
+  value: string;
   label: string;
   icon: React.ReactNode;
   color: string;
@@ -40,31 +38,31 @@ interface EventDef {
 
 const EVENT_DEFS: EventDef[] = [
   { value: "", label: "All events", icon: <Filter className="w-3.5 h-3.5" />, color: "" },
-  { value: "register", label: "Registration", icon: <UserCheck className="w-3.5 h-3.5" />, color: "text-emerald-400" },
+  { value: "register", label: "Account created", icon: <UserCheck className="w-3.5 h-3.5" />, color: "text-emerald-400" },
   { value: "login_success", label: "Login (success)", icon: <LogIn className="w-3.5 h-3.5" />, color: "text-emerald-400" },
   { value: "login_failed", label: "Login (failed)", icon: <LogOut className="w-3.5 h-3.5" />, color: "text-red-400" },
   { value: "login_locked", label: "Login (locked)", icon: <Shield className="w-3.5 h-3.5" />, color: "text-amber-400" },
-  { value: "login_account_locked", label: "Account locked", icon: <Shield className="w-3.5 h-3.5" />, color: "text-red-400" },
-  { value: "google_oauth_success", label: "Google OAuth", icon: <LogIn className="w-3.5 h-3.5" />, color: "text-blue-400" },
-  { value: "mfa_challenge_issued", label: "MFA challenge", icon: <Smartphone className="w-3.5 h-3.5" />, color: "text-purple-400" },
-  { value: "mfa_verify_success", label: "MFA verify (success)", icon: <Smartphone className="w-3.5 h-3.5" />, color: "text-emerald-400" },
-  { value: "mfa_verify_failed", label: "MFA verify (failed)", icon: <Smartphone className="w-3.5 h-3.5" />, color: "text-red-400" },
+  { value: "google_oauth_success", label: "Google login", icon: <LogIn className="w-3.5 h-3.5" />, color: "text-blue-400" },
+  { value: "mfa_challenge_issued", label: "MFA challenged", icon: <Smartphone className="w-3.5 h-3.5" />, color: "text-purple-400" },
+  { value: "mfa_verify_success", label: "MFA verified", icon: <Smartphone className="w-3.5 h-3.5" />, color: "text-emerald-400" },
+  { value: "mfa_verify_failed", label: "MFA failed", icon: <Smartphone className="w-3.5 h-3.5" />, color: "text-red-400" },
   { value: "mfa_enabled", label: "MFA enabled", icon: <Shield className="w-3.5 h-3.5" />, color: "text-emerald-400" },
   { value: "mfa_disabled", label: "MFA disabled", icon: <Shield className="w-3.5 h-3.5" />, color: "text-amber-400" },
   { value: "mfa_backup_codes_regenerated", label: "Backup codes regenerated", icon: <Key className="w-3.5 h-3.5" />, color: "text-purple-400" },
   { value: "forgot_password_requested", label: "Password reset requested", icon: <Key className="w-3.5 h-3.5" />, color: "text-blue-400" },
-  { value: "password_reset_success", label: "Password reset (success)", icon: <Key className="w-3.5 h-3.5" />, color: "text-emerald-400" },
-  { value: "password_reset_failed", label: "Password reset (failed)", icon: <Key className="w-3.5 h-3.5" />, color: "text-red-400" },
-  { value: "password_reset_expired", label: "Password reset (expired)", icon: <Clock className="w-3.5 h-3.5" />, color: "text-amber-400" },
+  { value: "password_reset_success", label: "Password reset", icon: <Key className="w-3.5 h-3.5" />, color: "text-emerald-400" },
+  { value: "password_reset_failed", label: "Password reset failed", icon: <Key className="w-3.5 h-3.5" />, color: "text-red-400" },
+  { value: "password_reset_expired", label: "Reset link expired", icon: <Clock className="w-3.5 h-3.5" />, color: "text-amber-400" },
   { value: "email_verification_sent", label: "Verification sent", icon: <Mail className="w-3.5 h-3.5" />, color: "text-blue-400" },
   { value: "email_verified", label: "Email verified", icon: <Mail className="w-3.5 h-3.5" />, color: "text-emerald-400" },
-  { value: "email_verification_resend", label: "Verification resent", icon: <Mail className="w-3.5 h-3.5" />, color: "text-blue-400" },
-  { value: "email_verification_failed", label: "Verification (failed)", icon: <AlertTriangle className="w-3.5 h-3.5" />, color: "text-red-400" },
+  { value: "profile_updated", label: "Profile updated", icon: <UserCheck className="w-3.5 h-3.5" />, color: "text-blue-400" },
+  { value: "password_changed", label: "Password changed", icon: <Key className="w-3.5 h-3.5" />, color: "text-emerald-400" },
+  { value: "sessions_revoked", label: "Sessions revoked", icon: <Shield className="w-3.5 h-3.5" />, color: "text-amber-400" },
 ];
 
 const EVENT_MAP = new Map(EVENT_DEFS.filter((d) => d.value).map((d) => [d.value, d]));
 
-const PAGE_SIZE = 30;
+const PAGE_SIZE = 20;
 
 function formatDate(iso: string): string {
   const d = new Date(iso);
@@ -101,9 +99,11 @@ function timeAgo(iso: string): string {
   return formatDate(iso);
 }
 
-export function AuditLogViewer() {
+export function CustomerActivityViewer() {
+  const { data: session } = useSession();
+
   // Filters
-  const [eventFilter, setEventFilter] = useState<AuditEventType>("");
+  const [eventFilter, setEventFilter] = useState("");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
@@ -129,42 +129,51 @@ export function AuditLogViewer() {
 
   const loadLogs = useCallback(
     async (pageNum: number) => {
-      setIsLoading(true);
-      setError(null);
-
-      const result = await fetchAuditLogs({
-        page: pageNum,
-        limit: PAGE_SIZE,
-        event: eventFilter,
-        dateFrom: dateFrom || undefined,
-        dateTo: dateTo || undefined,
-      });
-
-      if (!result.success) {
-        setError(result.error || "Failed to load audit logs");
+      const token = session?.accessToken;
+      if (!token) {
         setIsLoading(false);
         return;
       }
 
-      setLogs(result.data ?? []);
-      setMeta(
-        result.meta
-          ? {
-              page: result.meta.page,
-              totalPages: result.meta.totalPages,
-              total: result.meta.total,
-            }
-          : null,
-      );
-      setIsLoading(false);
+      setIsLoading(true);
+      setError(null);
+
+      try {
+        const res = await authEndpoints.myActivityLogs(
+          { page: pageNum, limit: PAGE_SIZE },
+          { headers: { Authorization: `Bearer ${token}` } },
+        );
+
+        const body = res.data;
+        if (body.success && body.data) {
+          setLogs(body.data);
+          setMeta(
+            body.meta
+              ? {
+                  page: body.meta.page,
+                  totalPages: body.meta.totalPages,
+                  total: body.meta.total,
+                }
+              : null,
+          );
+        } else {
+          setError(body.message || "Failed to load activity logs");
+        }
+      } catch {
+        setError("Network error. Please try again.");
+      } finally {
+        setIsLoading(false);
+      }
     },
-    [eventFilter, dateFrom, dateTo],
+    [],
   );
 
-  // Initial load
+  // Initial load - wait for session token to be ready
   useEffect(() => {
-    loadLogs(1);
-  }, [loadLogs]);
+    if (session?.accessToken) {
+      loadLogs(1);
+    }
+  }, [loadLogs, session?.accessToken]);
 
   // Track active filters for visual indicator
   useEffect(() => {
@@ -183,20 +192,29 @@ export function AuditLogViewer() {
   // ─── Filtered logs (client-side search) ───────────────────────────
 
   const filteredLogs = logs.filter((log) => {
+    // Server-side event filter is not applied, so we filter clientside
+    if (eventFilter && log.event !== eventFilter) return false;
+    // Date filters (clientside refinement)
+    if (dateFrom && new Date(log.createdAt) < new Date(dateFrom)) return false;
+    if (dateTo) {
+      const endOfDay = new Date(dateTo);
+      endOfDay.setHours(23, 59, 59, 999);
+      if (new Date(log.createdAt) > endOfDay) return false;
+    }
+    // Search
     if (!searchQuery) return true;
     const q = searchQuery.toLowerCase();
     return (
-      log.email?.toLowerCase().includes(q) ||
       log.event?.toLowerCase().includes(q) ||
       cleanIp(log.ip)?.includes(q) ||
-      log.userId?.includes(q)
+      log.email?.toLowerCase().includes(q)
     );
   });
 
   // ─── Render helper for event badge ────────────────────────────────
 
   const renderEventBadge = (eventType: string) => {
-    const def = EVENT_MAP.get(eventType as AuditEventType);
+    const def = EVENT_MAP.get(eventType);
     return (
       <span
         className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[0.65rem] font-medium tracking-wide ${
@@ -204,7 +222,7 @@ export function AuditLogViewer() {
         } bg-white/[0.04] border border-white/[0.06]`}
       >
         {def?.icon}
-        {def?.label ?? eventType}
+        {def?.label ?? eventType.replace(/_/g, " ")}
       </span>
     );
   };
@@ -319,7 +337,7 @@ export function AuditLogViewer() {
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Email, IP, user ID..."
+                placeholder="Event, IP..."
                 className="w-full bg-black/50 border border-white/[0.08] rounded-xl py-2.5 pl-10 pr-4 text-sm text-white placeholder:text-text-secondary/30 focus:outline-none focus:border-white/20 transition-colors"
               />
             </div>
@@ -386,9 +404,6 @@ export function AuditLogViewer() {
                 <th className="text-left text-[0.65rem] uppercase tracking-[0.2em] text-text-secondary font-medium px-5 py-3.5">
                   Event
                 </th>
-                <th className="text-left text-[0.65rem] uppercase tracking-[0.2em] text-text-secondary font-medium px-5 py-3.5">
-                  User
-                </th>
                 <th className="text-left text-[0.65rem] uppercase tracking-[0.2em] text-text-secondary font-medium px-5 py-3.5 hidden md:table-cell">
                   IP
                 </th>
@@ -400,9 +415,9 @@ export function AuditLogViewer() {
             </thead>
             <tbody className="divide-y divide-white/[0.04]">
               {isLoading && logs.length === 0
-                ? Array.from({ length: 8 }).map((_, i) => (
+                ? Array.from({ length: 5 }).map((_, i) => (
                     <tr key={`skeleton-${i}`}>
-                      <td className="px-5 py-4" colSpan={5}>
+                      <td className="px-5 py-4" colSpan={4}>
                         <div className="h-6 bg-white/[0.03] rounded-lg animate-pulse" />
                       </td>
                     </tr>
@@ -422,24 +437,6 @@ export function AuditLogViewer() {
                     >
                       <td className="px-5 py-3">
                         {renderEventBadge(log.event)}
-                      </td>
-                      <td className="px-5 py-3">
-                        <div className="flex flex-col">
-                          {log.email ? (
-                            <span className="text-xs text-white font-medium truncate max-w-[200px]">
-                              {log.email}
-                            </span>
-                          ) : (
-                            <span className="text-xs text-text-secondary/50 italic">
-                              -
-                            </span>
-                          )}
-                          {log.userId && (
-                            <span className="text-[0.6rem] text-text-secondary/40 font-mono mt-0.5 truncate max-w-[200px]">
-                              {log.userId}
-                            </span>
-                          )}
-                        </div>
                       </td>
                       <td className="px-5 py-3 hidden md:table-cell">
                         {log.ip ? (
@@ -501,15 +498,10 @@ export function AuditLogViewer() {
                 </div>
                 <div>
                   <p className="text-[0.6rem] uppercase tracking-[0.2em] text-text-secondary/50 font-medium mb-1.5">
-                    User info
+                    Info
                   </p>
                   {log.email && (
                     <p className="text-xs text-white">{log.email}</p>
-                  )}
-                  {log.userId && (
-                    <p className="text-[0.6rem] font-mono text-text-secondary/60 mt-0.5">
-                      ID: {log.userId}
-                    </p>
                   )}
                   {log.ip && (
                     <p className="text-[0.6rem] font-mono text-text-secondary/60 mt-0.5">
@@ -545,15 +537,15 @@ export function AuditLogViewer() {
       {!isLoading && filteredLogs.length === 0 && !error && (
         <div className="bg-card/40 backdrop-blur-3xl border border-white/5 rounded-3xl py-16 text-center">
           <div className="w-14 h-14 mx-auto mb-4 rounded-2xl bg-white/[0.03] border border-white/[0.06] flex items-center justify-center">
-            <Search className="w-6 h-6 text-text-secondary/40" />
+            <History className="w-6 h-6 text-text-secondary/40" />
           </div>
           <h3 className="font-display text-lg font-semibold text-foreground mb-1">
-            No audit logs found
+            No activity found
           </h3>
           <p className="text-sm text-text-secondary max-w-sm mx-auto">
             {hasActiveFilters
               ? "Try adjusting your filters to see more results."
-              : "Audit events will appear here as users interact with the platform."}
+              : "Activity events will appear here as you use the platform."}
           </p>
           {hasActiveFilters && (
             <button
@@ -584,7 +576,6 @@ export function AuditLogViewer() {
           <div className="flex items-center gap-1">
             {Array.from({ length: Math.min(meta.totalPages, 7) }, (_, i) => {
               const pageNum = (() => {
-                // Show pages around current page
                 const half = 3;
                 const total = meta.totalPages;
                 if (total <= 7) return i + 1;

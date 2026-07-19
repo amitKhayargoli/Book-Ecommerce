@@ -26,8 +26,13 @@ import {
   Upload,
   FileJson,
   FileSpreadsheet,
+  Clock,
+  Globe,
+  ChevronDown,
+  ChevronUp,
+  History,
 } from "lucide-react";
-import { authEndpoints, MfaSetupResponse } from "@/lib/api/auth";
+import { authEndpoints, MfaSetupResponse, AuditLogEntry } from "@/lib/api/auth";
 import { uploadImage } from "@/lib/api/upload";
 
 type Tab = "general" | "security";
@@ -1092,6 +1097,9 @@ export default function ProfilePage() {
                   )}
                 </div>
 
+                {/* ───── Activity Log ──────────────────────────── */}
+                <ActivityLogSection accessToken={session?.accessToken ?? ""} />
+
                 {/* Inline error */}
                 {mfaError && mfaState !== "error" && (
                   <motion.p
@@ -1533,6 +1541,40 @@ function ExportImportSection({ accessToken }: { accessToken: string }) {
         Importing a previously exported JSON file will restore your profile name,
         saved addresses, and order records for books that are still in the catalog.
       </p>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  Activity Log Section Component
+// ═══════════════════════════════════════════════════════════════════
+
+function ActivityLogSection({ accessToken: _accessToken }: { accessToken: string }) {
+  const router = useRouter();
+
+  return (
+    <div className="pt-6 border-t border-white/[0.06] mt-6">
+      <div className="flex items-start gap-4 mb-4">
+        <div className="w-12 h-12 rounded-xl bg-white/5 flex items-center justify-center shrink-0">
+          <History className="w-6 h-6 text-white/60" />
+        </div>
+        <div className="flex-1">
+          <h2 className="text-lg font-semibold text-foreground mb-1">
+            Account Activity
+          </h2>
+          <p className="text-sm text-text-secondary leading-relaxed">
+            Review all security events, logins, and changes made to your account.
+          </p>
+        </div>
+      </div>
+
+      <button
+        type="button"
+        onClick={() => router.push("/profile/activity")}
+        className="w-full bg-white/5 hover:bg-white/10 border border-white/[0.08] rounded-xl h-12 flex items-center justify-center gap-2 transition-all duration-300 text-sm font-medium text-white/70 hover:text-white"
+      >
+        View Activity Log
+      </button>
     </div>
   );
 }

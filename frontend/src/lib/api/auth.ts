@@ -46,6 +46,31 @@ export interface BackupCodesStatusResponse {
   remaining: number;
 }
 
+export interface AuditLogEntry {
+  id: string;
+  event: string;
+  userId?: string | null;
+  email?: string | null;
+  ip?: string | null;
+  userAgent?: string | null;
+  metadata?: Record<string, unknown> | null;
+  createdAt: string;
+}
+
+export interface PaginatedResponse<T> {
+  success: boolean;
+  data?: T;
+  meta?: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+    hasNextPage: boolean;
+    hasPrevPage: boolean;
+  };
+  message?: string;
+}
+
 export interface RegisterResponse {
   message: string;
   verificationUrl?: string;
@@ -111,6 +136,13 @@ export const authEndpoints = {
   // Change password
   changePassword: (payload: { currentPassword: string; newPassword: string }, config?: AxiosRequestConfig) =>
     api.put<AuthResponse<{ message: string }>>("/api/auth/change-password", payload, config),
+
+  // Activity logs
+  myActivityLogs: (params?: { page?: number; limit?: number }, config?: AxiosRequestConfig) =>
+    api.get<PaginatedResponse<AuditLogEntry[]>>("/api/auth/me/activity-logs", {
+      ...config,
+      params: { page: params?.page, limit: params?.limit },
+    }),
 
   // Session management
   revokeSessions: (config?: AxiosRequestConfig) =>

@@ -1,40 +1,4 @@
 services:
-  # ─── MongoDB (replica set required by Prisma) ──
-  mongo:
-    image: mongo:7
-    container_name: book-mongo
-    restart: unless-stopped
-    command: ["--replSet", "rs0", "--bind_ip_all"]
-    ports:
-      - "27017:27017"
-    volumes:
-      - mongo_data:/data/db
-    healthcheck:
-      test: echo 'db.runCommand("ping").ok' | mongosh --quiet
-      interval: 10s
-      timeout: 5s
-      retries: 5
-
-  # ─── MongoDB Replica Set Initialiser ────────
-  mongo-init:
-    image: mongo:7
-    container_name: book-mongo-init
-    restart: no
-    depends_on:
-      mongo:
-        condition: service_healthy
-    entrypoint:
-      - /bin/bash
-      - -c
-      - |
-        mongosh --host mongo --eval '
-          try {
-            rs.initiate({ _id: "rs0", members: [{ _id: 0, host: "mongo:27017" }] });
-          } catch(e) {
-            if (e.code !== 23) { throw e; }
-          }
-        '
-
   # ─── Backend (Express API) ────────────────────
   backend:
     build:
@@ -46,20 +10,20 @@ services:
     container_name: book-backend
     restart: unless-stopped
     ports:
-      - "4000:3001"
+      - "4500:3001"
       - "5555:5555"
     env_file:
       - ./backend/.env
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     environment:
-      - DATABASE_URL=mongodb://mongo:27017/bookstore
+      # Points to local MongoDB on the host (not Docker mongo)
+      - DATABASE_URL=mongodb://host.docker.internal:27017/bookstore?directConnection=true
       - NODE_ENV=${NODE_ENV:-development}
       - CORS_ORIGIN=http://localhost:3000
       - FRONTEND_BASE_URL=http://localhost:3000
       - AUTH_GOOGLE_ID=983296584328-0ljv301ovl183i8togdf42ki4oof8i9f.apps.googleusercontent.com
       # SMTP settings are loaded from backend/.env via env_file above
-    depends_on:
-      mongo-init:
-        condition: service_completed_successfully
     volumes:
       # Hot-reload: source code mounts over the container's copy
       - ./backend/src:/app/src
@@ -84,9 +48,9 @@ services:
       # Server-side (used by API routes + next-auth inside the Docker network)
       - BACKEND_URL=http://backend:3001
       # Client-side (read at runtime by Next.js dev server)
-      - NEXT_PUBLIC_BACKEND_URL=http://localhost:4000
+      - NEXT_PUBLIC_BACKEND_URL=http://localhost:4500
       - FRONTEND_URL=http://localhost:3000
-      - JWT_SECRET=${JWT_SECRET}
+      # JWT_SECRET is loaded from ./frontend/.env via env_file above
       - AUTH_TRUST_HOST=true
     depends_on:
       - backend
@@ -96,5 +60,4 @@ services:
       - ./frontend/public:/app/public
 
 volumes:
-  mongo_data:
   backend_uploads:

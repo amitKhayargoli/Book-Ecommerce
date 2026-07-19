@@ -51,7 +51,7 @@ const fileFilter = (
   if (!mimes.includes(file.mimetype)) {
     cb(
       new Error(
-        `Unsupported file type: ${file.mimetype}. Allowed: JPEG, PNG, WebP, GIF, AVIF.`,
+        `Unsupported file type: ${file.mimetype}. Allowed: JPEG, PNG, WebP, GIF, AVIF, SVG.`,
       ),
     );
     return;
@@ -63,7 +63,7 @@ const fileFilter = (
   if (!extensions.includes(ext as (typeof ALLOWED_EXTENSIONS)[number])) {
     cb(
       new Error(
-        `Unsupported file extension: ${ext}. Allowed: .jpg, .jpeg, .png, .webp, .gif, .avif.`,
+        `Unsupported file extension: ${ext}. Allowed: .jpg, .jpeg, .png, .webp, .gif, .avif`,
       ),
     );
     return;

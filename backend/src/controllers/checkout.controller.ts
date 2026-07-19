@@ -24,17 +24,26 @@ export class CheckoutController {
 
   initiateKhalti = async (req: Request, res: Response): Promise<void> => {
     const user = this.getAuthenticatedUser(req);
-    const { addressId } = req.body as { addressId?: string };
-    const data = await this.service.initiateKhalti(user.id, addressId);
+    const { addressId, customerName, customerEmail } = req.body as {
+      addressId?: string;
+      customerName?: string;
+      customerEmail?: string;
+    };
+    const data = await this.service.initiateKhalti(user.id, addressId, {
+      name: customerName ?? user.name,
+      email: customerEmail ?? user.email,
+    });
 
     sendSuccess(res, data, "Khalti checkout initiated", 201);
   };
 
-  verifyKhaltiSuccess = async (req: Request, res: Response): Promise<void> => {
-    const { pidx } = req.query as unknown as { pidx: string };
-    const purchaseOrderId =
-      typeof req.query.purchase_order_id === "string" ? req.query.purchase_order_id : undefined;
-    const verification = await this.service.verifyKhaltiSuccess(pidx, purchaseOrderId);
+  verifyKhalti = async (req: Request, res: Response): Promise<void> => {
+    const user = this.getAuthenticatedUser(req);
+    const { pidx, purchaseOrderId } = req.body as {
+      pidx: string;
+      purchaseOrderId?: string;
+    };
+    const verification = await this.service.verifyKhaltiSuccess(pidx, purchaseOrderId, user.id);
 
     sendSuccess(res, verification, "Khalti payment verified");
   };
