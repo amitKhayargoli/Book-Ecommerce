@@ -5,7 +5,6 @@ import { User, Mail, Lock, ArrowRight, CheckCircle2 } from "lucide-react";
 import Link from "next/link";
 import { useState, useEffect, useRef } from "react";
 import { handleRegister } from "../actions/auth-action";
-import { signIn } from "next-auth/react";
 import PasswordStrengthMeter from "../components/PasswordStrengthMeter";
 
 declare global {
@@ -93,7 +92,7 @@ export default function SignupPage() {
   };
 
   const handleGoogleSignUp = () => {
-    signIn("google", { callbackUrl: "/" });
+    window.location.href = "/api/auth/google?callbackUrl=/";
   };
 
   // ─── Verification pending state ──────────────────────────────────────

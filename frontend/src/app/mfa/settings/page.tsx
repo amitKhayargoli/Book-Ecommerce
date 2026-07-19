@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useSession } from "next-auth/react";
+import { useSession } from "@/lib/session-context";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -367,37 +367,6 @@ export default function MfaSettingsPage() {
                       alt="TOTP QR Code"
                       className="w-48 h-48"
                     />
-                  </div>
-                </div>
-
-                {/* Manual entry */}
-                <div className="bg-white/[0.03] border border-white/[0.06] rounded-xl p-4">
-                  <p className="text-xs text-text-secondary mb-2 font-medium uppercase tracking-wider">
-                    Or enter manually
-                  </p>
-                  <div className="flex items-center gap-2">
-                    <code className="flex-1 text-xs font-mono text-white/70 bg-black/30 rounded-lg px-3 py-2 truncate select-all">
-                      {setupData.secret}
-                    </code>
-                    <button
-                      type="button"
-                      onClick={async () => {
-                        try {
-                          await navigator.clipboard.writeText(setupData.secret);
-                        } catch {
-                          /* clipboard not available */
-                        }
-                        setCopied(true);
-                        setTimeout(() => setCopied(false), 2000);
-                      }}
-                      className={`shrink-0 px-3 py-2 text-xs font-medium rounded-lg transition-all duration-200 ${
-                        copied
-                          ? "text-emerald-400 bg-emerald-500/10"
-                          : "text-white/60 hover:text-white bg-white/5 hover:bg-white/10"
-                      }`}
-                    >
-                      {copied ? "Copied!" : "Copy"}
-                    </button>
                   </div>
                 </div>
 

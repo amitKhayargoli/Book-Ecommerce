@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { WishlistController } from "../controllers/wishlist.controller";
 import { authMiddleware } from "../middlewares/auth.middleware";
+import { customerMiddleware } from "../middlewares/customer.middleware";
 import { validate } from "../middlewares/validate.middleware";
 import { AddWishlistItemSchema, WishlistBookParamSchema } from "../dto/wishlist.dto";
 import { asyncHandler } from "../middlewares/asyncHandler";
@@ -12,11 +13,12 @@ const controller = new WishlistController();
 // 60 wishlist requests per 15 minutes per user
 const wishlistLimiter = perUserRateLimit(60);
 
-router.get("/", authMiddleware, wishlistLimiter, asyncHandler(controller.getWishlist));
+router.get("/", authMiddleware, customerMiddleware, wishlistLimiter, asyncHandler(controller.getWishlist));
 
 router.get(
   "/items/:bookId/status",
   authMiddleware,
+  customerMiddleware,
   wishlistLimiter,
   validate(WishlistBookParamSchema, "params"),
   asyncHandler(controller.getItemStatus),
@@ -25,6 +27,7 @@ router.get(
 router.post(
   "/items",
   authMiddleware,
+  customerMiddleware,
   wishlistLimiter,
   validate(AddWishlistItemSchema),
   asyncHandler(controller.addItem),
@@ -33,6 +36,7 @@ router.post(
 router.delete(
   "/items/:bookId",
   authMiddleware,
+  customerMiddleware,
   wishlistLimiter,
   validate(WishlistBookParamSchema, "params"),
   asyncHandler(controller.removeItem),

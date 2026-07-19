@@ -1,30 +1,14 @@
-import { DefaultSession } from "next-auth";
+// ─── Custom Session Types ──────────────────────────────────────────
+//
+// These types replace the NextAuth type augmentations.
+// The Session type is defined in @/lib/session and exported via @/auth.
+//
+// For server components / API routes:
+//   import { auth } from "@/auth";
+//   const session = await auth();  // Session | null
+//
+// For client components:
+//   import { useSession } from "@/lib/session-context";
+//   const { data: session, status } = useSession();
 
-declare module "next-auth" {
-  interface Session {
-    accessToken?: string;
-    mfaRequired?: boolean;
-    mfaToken?: string;
-    user: DefaultSession["user"] & {
-      id: string;
-      role: string;
-      provider: string;
-    };
-  }
-
-  interface User {
-    role?: string;
-    accessToken?: string;
-  }
-}
-
-declare module "next-auth/jwt" {
-  interface JWT {
-    id?: string;
-    role?: string;
-    accessToken?: string;
-    mfaRequired?: boolean;
-    mfaToken?: string;
-    provider?: string;
-  }
-}
+export type { Session, SessionUser } from "@/lib/session";

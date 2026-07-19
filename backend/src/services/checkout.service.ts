@@ -1,7 +1,12 @@
 import crypto from "crypto";
 import { Prisma } from "@prisma/client";
 import prisma from "../lib/prisma";
-import { AppError, BadRequestError, NotFoundError } from "../utils/errors";
+import {
+  AppError,
+  BadRequestError,
+  NotFoundError,
+  UnauthorizedError,
+} from "../utils/errors";
 import { CheckoutRepository } from "../repositories/checkout.repository";
 import { MailService } from "./mail.service";
 import {
@@ -188,7 +193,11 @@ export class CheckoutService implements ICheckoutService {
     return payload;
   }
 
-  async initiateKhalti(userId: string, addressId?: string): Promise<CheckoutInitiationResponse> {
+  async initiateKhalti(
+    userId: string,
+    addressId?: string,
+    customerInfo?: { name?: string; email?: string },
+  ): Promise<CheckoutInitiationResponse> {
     const config = this.getKhaltiConfig();
     const cartItems = await this.repo.findCartItemsByUserId(userId);
     if (cartItems.length === 0) {
@@ -234,6 +243,10 @@ export class CheckoutService implements ICheckoutService {
         amount: totalAmountInPaisa,
         purchase_order_id: transactionUuid,
         purchase_order_name: `Book order ${order.id}`,
+        customer_info: {
+          name: customerInfo?.name ?? "",
+          email: customerInfo?.email ?? "",
+        },
       }),
     });
 
@@ -250,6 +263,15 @@ export class CheckoutService implements ICheckoutService {
       throw new AppError("Invalid response from Khalti checkout initiation", 502);
     }
 
+    // Persist the pidx so verification can be done by pidx alone — robust even if
+    // the redirect drops query params. Mirrors the reference implementation which
+    // saves pidx on the booking at initiate time.
+    try {
+      await this.repo.savePidx(order.id, payload.pidx);
+    } catch (err) {
+      console.error(`[CheckoutService] Failed to persist pidx for order ${order.id}:`, err);
+    }
+
     return {
       orderId: order.id,
       transactionUuid,
@@ -262,6 +284,7 @@ export class CheckoutService implements ICheckoutService {
   async verifyKhaltiSuccess(
     pidx: string,
     purchaseOrderId?: string,
+    userId?: string,
   ): Promise<CheckoutVerificationResponse> {
     if (!pidx || pidx.trim().length === 0) {
       throw new BadRequestError("pidx is required");
@@ -271,17 +294,32 @@ export class CheckoutService implements ICheckoutService {
     const lookup = await this.callKhaltiLookup(pidx, config);
     const status = lookup.status?.toUpperCase() ?? "UNKNOWN";
 
-    // The Khalti lookup API does NOT return purchase_order_id in its response.
-    // Use the purchase_order_id from the callback redirect query params instead.
-    if (!purchaseOrderId || !TRANSACTION_UUID_REGEX.test(purchaseOrderId)) {
-      throw new BadRequestError("Invalid transaction_uuid");
-    }
-    const transactionUuid = purchaseOrderId;
+    // Resolve the order: prefer the pidx persisted at initiate time, then the
+    // purchase_order_id echoed back by Khalti (redirect query OR lookup body).
+    let order = await this.repo.findOrderByPidx(pidx);
+    let transactionUuid: string | null = order?.paymentTransactionUuid ?? null;
 
-    const order = await this.repo.findOrderByTransactionUuid(transactionUuid);
+    if (!order && purchaseOrderId && TRANSACTION_UUID_REGEX.test(purchaseOrderId)) {
+      transactionUuid = purchaseOrderId;
+      order = await this.repo.findOrderByTransactionUuid(purchaseOrderId);
+    }
+
+    if (!order && lookup.purchase_order_id && TRANSACTION_UUID_REGEX.test(lookup.purchase_order_id)) {
+      transactionUuid = lookup.purchase_order_id;
+      order = await this.repo.findOrderByTransactionUuid(lookup.purchase_order_id);
+    }
+
     if (!order) {
       throw new NotFoundError("Order");
     }
+
+    // Ownership check: when the caller is authenticated, never let one user
+    // verify (or mark failed) another user's order.
+    if (userId && order.userId !== userId) {
+      throw new UnauthorizedError("You do not have access to this order");
+    }
+
+    transactionUuid = transactionUuid ?? order.paymentTransactionUuid;
 
     const callbackAmountInPaisa = this.parseKhaltiAmountInPaisa(lookup.total_amount);
     const expectedAmountInPaisa = Math.round(order.totalAmount * KHALTI_PAISA_MULTIPLIER);

@@ -6,6 +6,7 @@ import { asyncHandler } from "../middlewares/asyncHandler";
 import { ChangePasswordSchema, ForgotPasswordSchema, GoogleOAuthSchema, LoginSchema, MfaDisableSchema, MfaEnableSchema, MfaSetupSchema, MfaVerifyLoginSchema, RegenerateBackupCodesSchema, RegisterSchema, ResendVerificationSchema, ResetPasswordSchema, UpdateProfileSchema, ImportDataSchema } from "../dto/auth.dto";
 import { authMiddleware } from "../middlewares/auth.middleware";
 import { adminMiddleware } from "../middlewares/admin.middleware";
+import { customerMiddleware } from "../middlewares/customer.middleware";
 import { captchaMiddleware } from "../middlewares/captcha.middleware";
 
 const router = Router();
@@ -121,10 +122,15 @@ const changePasswordLimiter = rateLimit({
 
 router.put("/change-password", authMiddleware, changePasswordLimiter, validate(ChangePasswordSchema), asyncHandler(controller.changePassword));
 
-router.get("/orders", authMiddleware, asyncHandler(controller.getOrders));
+router.post("/revoke-sessions", authMiddleware, asyncHandler(controller.revokeSessions));
 
-router.get("/export", authMiddleware, asyncHandler(controller.exportData));
-router.post("/import", authMiddleware, validate(ImportDataSchema), asyncHandler(controller.importData));
+router.get("/orders", authMiddleware, customerMiddleware, asyncHandler(controller.getOrders));
+
+router.get("/export", authMiddleware, customerMiddleware, asyncHandler(controller.exportData));
+router.post("/import", authMiddleware, customerMiddleware, validate(ImportDataSchema), asyncHandler(controller.importData));
+
+// ─── Customer Activity Logs ────────────────────────────────────────
+router.get("/me/activity-logs", authMiddleware, asyncHandler(controller.getMyActivityLogs));
 
 // ─── Admin Routes ──────────────────────────────────────────────────
 router.get("/audit-logs", authMiddleware, adminMiddleware, asyncHandler(controller.getAuditLogs));

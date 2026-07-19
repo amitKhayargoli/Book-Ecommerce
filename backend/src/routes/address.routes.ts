@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { AddressController } from "../controllers/address.controller";
 import { authMiddleware } from "../middlewares/auth.middleware";
+import { customerMiddleware } from "../middlewares/customer.middleware";
 import { asyncHandler } from "../middlewares/asyncHandler";
 import { validate } from "../middlewares/validate.middleware";
 import { CreateAddressSchema, UpdateAddressSchema } from "../dto/address.dto";
@@ -8,7 +9,7 @@ import { CreateAddressSchema, UpdateAddressSchema } from "../dto/address.dto";
 const router = Router();
 const controller = new AddressController();
 
-router.use(authMiddleware);
+router.use(authMiddleware, customerMiddleware);
 
 router.get("/", asyncHandler(controller.listAddresses));
 router.get("/:id", asyncHandler(controller.getAddress));

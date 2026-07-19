@@ -2,7 +2,7 @@
 
 import { FormEvent, useState, Suspense, useEffect, useRef } from "react";
 import Link from "next/link";
-import { signIn, signOut, useSession } from "next-auth/react";
+import { useSession } from "@/lib/session-context";
 import { useRouter, useSearchParams } from "next/navigation";
 import { motion } from "framer-motion";
 import { Mail, Lock, ArrowRight, Loader2, Shield } from "lucide-react";
@@ -62,33 +62,39 @@ function LoginForm() {
   // Check for expired-session redirect (from 401 interceptor or middleware)
   const expired = params.get("expired");
   const [sessionExpired, setSessionExpired] = useState(false);
-  const clearingSession = useRef(false);
 
   // Check for MFA session expired redirect (from expired MFA challenge token)
   const mfaExpired = params.get("mfa_expired");
   const [mfaSessionExpired, setMfaSessionExpired] = useState(false);
 
+  // Check for session-revoked redirect (from "Revoke All Sessions" action)
+  const revoked = params.get("revoked");
+  const [sessionsRevoked, setSessionsRevoked] = useState(false);
+
   useEffect(() => {
     if (mfaExpired === "true") {
       setMfaSessionExpired(true);
     }
-  }, [mfaExpired]);
+    if (revoked === "true") {
+      setSessionsRevoked(true);
+    }
+  }, [mfaExpired, revoked]);
 
   useEffect(() => {
-    if (expired !== "true" || clearingSession.current) return;
+    if (expired !== "true") return;
 
-    clearingSession.current = true;
-
-    // Always signOut to fully clear the stale NextAuth session cookie,
-    // even if accessToken is already undefined (the session JWT still exists
-    // and the authorized middleware will keep redirecting otherwise).
+    // Clear the stale session cookie
     const clearStaleSession = async () => {
-      await signOut({ redirect: false });
+      try {
+        await fetch("/api/auth/logout", { method: "POST" });
+      } catch {
+        // ignore
+      }
       setSessionExpired(true);
     };
 
     clearStaleSession();
-  }, [expired, session]);
+  }, [expired]);
 
   // Mark as mounted to avoid hydration mismatch
   useEffect(() => {
@@ -226,33 +232,52 @@ function LoginForm() {
     }
   };
 
-  /** Final step: Create NextAuth session with access token */
-  const completeLogin = async (accessToken: string) => {
-    const result = await signIn("credentials", {
-      accessToken,
-      redirect: false,
-      callbackUrl,
-    });
-
-    setIsLoading(false);
-
-    if (!result || result.error) {
-      // Try to surface the actual backend error by checking the session
-      // If the session exists but accessToken is missing, the token was rejected
-      setError(
-        result?.error === "CredentialsSignin"
-          ? "Your session could not be created. Please try signing in again."
-          : "Failed to create session. Please try again.",
-      );
-      return;
+  /** Decode JWT payload to extract the user role (client-side only, no signature verification) */
+  function decodeJwtRole(token: string): string | null {
+    try {
+      const payload = token.split(".")[1];
+      if (!payload) return null;
+      let b64 = payload.replace(/-/g, "+").replace(/_/g, "/");
+      while (b64.length % 4) b64 += "=";
+      const decoded = JSON.parse(atob(b64)) as { role?: string };
+      return decoded.role ?? null;
+    } catch {
+      return null;
     }
+  }
 
-    router.push(result.url ?? callbackUrl);
-    router.refresh();
+  /** Final step: Create session cookie with access token */
+  const completeLogin = async (accessToken: string) => {
+    try {
+      const res = await fetch("/api/auth/set-session", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ accessToken }),
+      });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ message: "Failed to create session" }));
+        setError(err.message || "Your session could not be created. Please try again.");
+        setIsLoading(false);
+        return;
+      }
+
+      setIsLoading(false);
+
+      // Redirect admins to the admin dashboard regardless of callbackUrl
+      const role = decodeJwtRole(accessToken);
+      const redirectUrl = role === "ADMIN" ? "/admin" : callbackUrl;
+
+      router.push(redirectUrl);
+      router.refresh();
+    } catch {
+      setError("Network error. Please try again.");
+      setIsLoading(false);
+    }
   };
 
   const handleGoogleSignIn = () => {
-    signIn("google", { callbackUrl });
+    window.location.href = `/api/auth/google?callbackUrl=${encodeURIComponent(callbackUrl)}`;
   };
 
   // ─── MFA Step UI ────────────────────────────────────────────────────
@@ -549,6 +574,19 @@ function LoginForm() {
                 />
               </div>
             </div>
+
+            {/* Session revoked banner */}
+            {sessionsRevoked && (
+              <motion.div
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/20"
+              >
+                <p className="text-sm text-emerald-300/90 font-medium text-center">
+                  All sessions have been revoked. Please sign in again.
+                </p>
+              </motion.div>
+            )}
 
             {/* MFA session expired banner */}
             {mfaSessionExpired && (

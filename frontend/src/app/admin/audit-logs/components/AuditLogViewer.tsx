@@ -27,6 +27,7 @@ import {
   AuditEventType,
   fetchAuditLogs,
 } from "../actions/audit-actions";
+import { cleanIp } from "@/lib/ip";
 
 // ─── Event type definitions with labels, icons, and color schemes ──────
 
@@ -187,7 +188,7 @@ export function AuditLogViewer() {
     return (
       log.email?.toLowerCase().includes(q) ||
       log.event?.toLowerCase().includes(q) ||
-      log.ip?.includes(q) ||
+      cleanIp(log.ip)?.includes(q) ||
       log.userId?.includes(q)
     );
   });
@@ -443,7 +444,7 @@ export function AuditLogViewer() {
                       <td className="px-5 py-3 hidden md:table-cell">
                         {log.ip ? (
                           <span className="text-xs font-mono text-text-secondary">
-                            {log.ip}
+                            {cleanIp(log.ip)}
                           </span>
                         ) : (
                           <span className="text-xs text-text-secondary/50 italic">
@@ -512,7 +513,7 @@ export function AuditLogViewer() {
                   )}
                   {log.ip && (
                     <p className="text-[0.6rem] font-mono text-text-secondary/60 mt-0.5">
-                      IP: {log.ip}
+                      IP: {cleanIp(log.ip)}
                     </p>
                   )}
                 </div>

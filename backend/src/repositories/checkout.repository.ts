@@ -71,25 +71,44 @@ export class CheckoutRepository {
     });
   }
 
+  private readonly orderSelect = {
+    id: true,
+    userId: true,
+    totalAmount: true,
+    status: true,
+    paymentStatus: true,
+    paymentProvider: true,
+    paymentTransactionUuid: true,
+    paymentPidx: true,
+    items: {
+      select: {
+        bookId: true,
+      },
+    },
+  } as const;
+
   async findOrderByTransactionUuid(paymentTransactionUuid: string) {
     return prisma.order.findUnique({
       where: {
         paymentTransactionUuid,
       },
-      select: {
-        id: true,
-        userId: true,
-        totalAmount: true,
-        status: true,
-        paymentStatus: true,
-        paymentProvider: true,
-        paymentTransactionUuid: true,
-        items: {
-          select: {
-            bookId: true,
-          },
-        },
+      select: this.orderSelect,
+    });
+  }
+
+  async findOrderByPidx(pidx: string) {
+    return prisma.order.findUnique({
+      where: {
+        paymentPidx: pidx,
       },
+      select: this.orderSelect,
+    });
+  }
+
+  async savePidx(orderId: string, pidx: string): Promise<void> {
+    await prisma.order.update({
+      where: { id: orderId },
+      data: { paymentPidx: pidx },
     });
   }
 

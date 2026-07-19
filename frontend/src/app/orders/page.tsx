@@ -3,6 +3,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Package, Clock, CreditCard, MapPin, ChevronRight } from "lucide-react";
 import { auth } from "@/auth";
+import type { Session } from "@/auth";
 import { BACKEND_URL } from "@/lib/server-config";
 
 interface OrderItem {

@@ -19,7 +19,7 @@ import prisma from "../lib/prisma";
 
 type AuthenticatedRequest = Request & { user?: AuthUserPayload };
 
-import crypto from "crypto";
+import { userAgentHash } from "../utils/userAgent";
 
 /** Extract audit context (IP + User-Agent) from the Express request */
 function auditCtx(req: Request) {
@@ -27,13 +27,6 @@ function auditCtx(req: Request) {
     ip: req.ip ?? req.socket.remoteAddress,
     userAgent: req.headers["user-agent"] as string,
   };
-}
-
-/** Hash the User-Agent header for session binding */
-function userAgentHash(req: Request): string | undefined {
-  const ua = req.headers["user-agent"];
-  if (!ua) return undefined;
-  return crypto.createHash("sha256").update(ua as string).digest("hex");
 }
 
 export class AuthController {
@@ -108,6 +101,17 @@ export class AuthController {
       return;
     }
     const result = await this.service.changePassword(user.id, req.body as ChangePasswordDto, auditCtx(req));
+    sendSuccess(res, result, result.message);
+  };
+
+  /** Revoke all active sessions (increment tokenVersion) */
+  revokeSessions = async (req: Request, res: Response): Promise<void> => {
+    const user = (req as AuthenticatedRequest).user;
+    if (!user) {
+      res.status(401).json({ success: false, message: "Authentication required" });
+      return;
+    }
+    const result = await this.service.revokeSessions(user.id, auditCtx(req));
     sendSuccess(res, result, result.message);
   };
 
@@ -275,6 +279,32 @@ export class AuthController {
   };
 
   // ─── Audit Log Viewer (Admin) ───────────────────────────────────────
+
+  /** Fetch paginated audit logs for the current user */
+  getMyActivityLogs = async (req: Request, res: Response): Promise<void> => {
+    const user = (req as AuthenticatedRequest).user;
+    if (!user) {
+      res.status(401).json({ success: false, message: "Authentication required" });
+      return;
+    }
+
+    const page = Math.max(1, parseInt(req.query.page as string) || 1);
+    const limit = Math.min(50, Math.max(1, parseInt(req.query.limit as string) || 20));
+
+    const where = { userId: user.id };
+
+    const [logs, total] = await Promise.all([
+      prisma.auditLog.findMany({
+        where,
+        orderBy: { createdAt: "desc" },
+        skip: (page - 1) * limit,
+        take: limit,
+      }),
+      prisma.auditLog.count({ where }),
+    ]);
+
+    sendPaginated(res, logs, buildPaginationMeta(total, page, limit));
+  };
 
   /** Fetch paginated audit logs (admin only) */
   getAuditLogs = async (req: Request, res: Response): Promise<void> => {

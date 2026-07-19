@@ -40,7 +40,9 @@ export function signAccessToken(user: AuthUserPayload): string {
 }
 
 export function verifyAccessToken(token: string): AuthUserPayload {
-  const decoded = jwt.verify(token, getJwtSecret()) as SignedAuthTokenPayload;
+  const decoded = jwt.verify(token, getJwtSecret(), {
+    // algorithms: ["HS256"],
+  }) as SignedAuthTokenPayload;
 
   return {
     id: decoded.sub,
@@ -68,7 +70,9 @@ export function signMfaChallengeToken(user: { id: string; email: string }): stri
  * Verify an MFA challenge token and return the user ID.
  */
 export function verifyMfaChallengeToken(token: string): { id: string; email: string } {
-  const decoded = jwt.verify(token, getJwtSecret()) as JwtPayload & {
+  const decoded = jwt.verify(token, getJwtSecret(), {
+    // algorithms: ["HS256"],
+  }) as JwtPayload & {
     sub: string;
     email: string;
     purpose: string;

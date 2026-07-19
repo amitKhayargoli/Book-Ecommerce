@@ -3,7 +3,13 @@ import { UserRole } from "@prisma/client";
 import prisma from "../lib/prisma";
 import bcrypt from "bcryptjs";
 import crypto from "crypto";
-import { ConflictError, NotFoundError, UnauthorizedError, TooManyRequestsError, BadRequestError } from "../utils/errors";
+import {
+  ConflictError,
+  NotFoundError,
+  UnauthorizedError,
+  TooManyRequestsError,
+  BadRequestError,
+} from "../utils/errors";
 import {
   ChangePasswordDto,
   ForgotPasswordDto,
@@ -30,7 +36,11 @@ import {
   ResetPasswordResponse,
   VerifyEmailResponse,
 } from "../types/auth.types";
-import { signAccessToken, signMfaChallengeToken, verifyMfaChallengeToken } from "../utils/jwt";
+import {
+  signAccessToken,
+  signMfaChallengeToken,
+  verifyMfaChallengeToken,
+} from "../utils/jwt";
 import { encrypt, decrypt } from "../utils/encryption";
 
 /**
@@ -83,7 +93,10 @@ export class AuthService {
     };
   }
 
-  async register(dto: RegisterDto, auditCtx?: AuditContext): Promise<RegisterResponse> {
+  async register(
+    dto: RegisterDto,
+    auditCtx?: AuditContext,
+  ): Promise<RegisterResponse> {
     const normalizedEmail = dto.email.toLowerCase();
 
     const existing = await prisma.user.findUnique({
@@ -92,7 +105,14 @@ export class AuthService {
     });
 
     if (existing) {
-      this.audit.log("login_failed", this.ctx({ email: normalizedEmail, ...auditCtx, metadata: { reason: "email_taken" } }));
+      this.audit.log(
+        "login_failed",
+        this.ctx({
+          email: normalizedEmail,
+          ...auditCtx,
+          metadata: { reason: "email_taken" },
+        }),
+      );
       throw new ConflictError("An account with this email already exists");
     }
 
@@ -133,7 +153,8 @@ export class AuthService {
       },
     });
 
-    const frontendUrl = process.env.FRONTEND_BASE_URL ?? "http://localhost:3000";
+    const frontendUrl =
+      process.env.FRONTEND_BASE_URL ?? "http://localhost:3000";
     const verificationUrl = `${frontendUrl}/verify-email?token=${token}`;
 
     console.log("\n─── Email Verification ────────────────────────────────");
@@ -143,18 +164,34 @@ export class AuthService {
     console.log("──────────────────────────────────────────────────\n");
 
     // Send verification email
-    await this.mail.sendVerificationEmail(normalizedEmail, dto.name, verificationUrl);
+    await this.mail.sendVerificationEmail(
+      normalizedEmail,
+      dto.name,
+      verificationUrl,
+    );
 
-    this.audit.log("email_verification_sent", this.ctx({ userId: user.id, email: normalizedEmail, ...auditCtx }));
-    this.audit.log("register", this.ctx({ userId: user.id, email: normalizedEmail, ...auditCtx }));
+    this.audit.log(
+      "email_verification_sent",
+      this.ctx({ userId: user.id, email: normalizedEmail, ...auditCtx }),
+    );
+    this.audit.log(
+      "register",
+      this.ctx({ userId: user.id, email: normalizedEmail, ...auditCtx }),
+    );
 
     return {
-      message: "Account created! Please check your email to verify your account before signing in.",
-      verificationUrl: process.env.NODE_ENV === "development" ? verificationUrl : undefined,
+      message:
+        "Account created! Please check your email to verify your account before signing in.",
+      verificationUrl:
+        process.env.NODE_ENV === "development" ? verificationUrl : undefined,
     };
   }
 
-  async login(dto: LoginDto, auditCtx?: AuditContext, userAgentHash?: string): Promise<LoginResult> {
+  async login(
+    dto: LoginDto,
+    auditCtx?: AuditContext,
+    userAgentHash?: string,
+  ): Promise<LoginResult> {
     const normalizedEmail = dto.email.toLowerCase();
 
     const user = await prisma.user.findUnique({
@@ -176,7 +213,14 @@ export class AuthService {
     });
 
     if (!user) {
-      this.audit.log("login_failed", this.ctx({ email: normalizedEmail, ...auditCtx, metadata: { reason: "user_not_found" } }));
+      this.audit.log(
+        "login_failed",
+        this.ctx({
+          email: normalizedEmail,
+          ...auditCtx,
+          metadata: { reason: "user_not_found" },
+        }),
+      );
       throw new UnauthorizedError("Invalid email or password");
     }
 
@@ -187,9 +231,20 @@ export class AuthService {
 
     // ─── Check password expiry ────────────────────────────────────────
     if (user.passwordChangedAt) {
-      const expiredAt = new Date(user.passwordChangedAt.getTime() + PASSWORD_EXPIRY_DAYS * 24 * 60 * 60 * 1000);
+      const expiredAt = new Date(
+        user.passwordChangedAt.getTime() +
+          PASSWORD_EXPIRY_DAYS * 24 * 60 * 60 * 1000,
+      );
       if (expiredAt < new Date()) {
-        this.audit.log("login_failed", this.ctx({ userId: user.id, email: user.email, ...auditCtx, metadata: { reason: "password_expired" } }));
+        this.audit.log(
+          "login_failed",
+          this.ctx({
+            userId: user.id,
+            email: user.email,
+            ...auditCtx,
+            metadata: { reason: "password_expired" },
+          }),
+        );
         throw new BadRequestError(
           "Your password has expired. Please reset your password.",
         );
@@ -198,7 +253,10 @@ export class AuthService {
 
     // ─── Check account lockout ────────────────────────────────────────
     if (user.lockoutUntil && user.lockoutUntil > new Date()) {
-      this.audit.log("login_locked", this.ctx({ userId: user.id, email: user.email, ...auditCtx }));
+      this.audit.log(
+        "login_locked",
+        this.ctx({ userId: user.id, email: user.email, ...auditCtx }),
+      );
       const remainingMs = user.lockoutUntil.getTime() - Date.now();
       const remainingMin = Math.ceil(remainingMs / 60000);
       throw new TooManyRequestsError(
@@ -230,7 +288,15 @@ export class AuthService {
             lockoutUntil: new Date(Date.now() + LOCKOUT_DURATION_MS),
           },
         });
-        this.audit.log("login_account_locked", this.ctx({ userId: user.id, email: user.email, ...auditCtx, metadata: { attempts: newAttempts } }));
+        this.audit.log(
+          "login_account_locked",
+          this.ctx({
+            userId: user.id,
+            email: user.email,
+            ...auditCtx,
+            metadata: { attempts: newAttempts },
+          }),
+        );
       } else {
         await prisma.user.update({
           where: { id: user.id },
@@ -238,7 +304,15 @@ export class AuthService {
         });
       }
 
-      this.audit.log("login_failed", this.ctx({ userId: user.id, email: user.email, ...auditCtx, metadata: { attempts: newAttempts } }));
+      this.audit.log(
+        "login_failed",
+        this.ctx({
+          userId: user.id,
+          email: user.email,
+          ...auditCtx,
+          metadata: { attempts: newAttempts },
+        }),
+      );
       throw new UnauthorizedError("Invalid email or password");
     }
 
@@ -252,9 +326,15 @@ export class AuthService {
 
     // ─── If MFA is enabled, return a challenge token ──────────────────
     if (user.isMfaEnabled) {
-      const mfaToken = signMfaChallengeToken({ id: user.id, email: user.email });
+      const mfaToken = signMfaChallengeToken({
+        id: user.id,
+        email: user.email,
+      });
 
-      this.audit.log("mfa_challenge_issued", this.ctx({ userId: user.id, email: user.email, ...auditCtx }));
+      this.audit.log(
+        "mfa_challenge_issued",
+        this.ctx({ userId: user.id, email: user.email, ...auditCtx }),
+      );
 
       return {
         mfaRequired: true,
@@ -262,7 +342,10 @@ export class AuthService {
       } satisfies MfaChallengeResponse;
     }
 
-    this.audit.log("login_success", this.ctx({ userId: user.id, email: user.email, ...auditCtx }));
+    this.audit.log(
+      "login_success",
+      this.ctx({ userId: user.id, email: user.email, ...auditCtx }),
+    );
 
     const safeUser: AuthUserPayload = {
       id: user.id,
@@ -280,9 +363,14 @@ export class AuthService {
     };
   }
 
-  async loginWithGoogle(dto: GoogleOAuthDto, auditCtx?: AuditContext, userAgentHash?: string): Promise<LoginResult> {
+  async loginWithGoogle(
+    dto: GoogleOAuthDto,
+    auditCtx?: AuditContext,
+    userAgentHash?: string,
+  ): Promise<LoginResult> {
     const normalizedEmail = dto.email.toLowerCase();
-    // ─── Verify the Google ID token server-side ─────────────────────
+
+    // ─── Verify the Google ID token server-side ────────────────────
     try {
       const ticket = await googleClient.verifyIdToken({
         idToken: dto.idToken,
@@ -292,13 +380,27 @@ export class AuthService {
       const verifiedEmail = payload?.email?.toLowerCase();
 
       if (!verifiedEmail || verifiedEmail !== normalizedEmail) {
-        this.audit.log("login_failed", this.ctx({ ...auditCtx, metadata: { reason: "oauth_token_email_mismatch" } }));
+        this.audit.log(
+          "login_failed",
+          this.ctx({
+            ...auditCtx,
+            metadata: { reason: "oauth_token_email_mismatch" },
+          }),
+        );
         throw new UnauthorizedError("Invalid Google ID token");
       }
     } catch (err) {
       if (err instanceof UnauthorizedError) throw err;
-      this.audit.log("login_failed", this.ctx({ ...auditCtx, metadata: { reason: "oauth_token_verification_failed" } }));
-      throw new UnauthorizedError("Failed to verify Google ID token. Please try signing in again.");
+      this.audit.log(
+        "login_failed",
+        this.ctx({
+          ...auditCtx,
+          metadata: { reason: "oauth_token_verification_failed" },
+        }),
+      );
+      throw new UnauthorizedError(
+        "Failed to verify Google ID token. Please try signing in again.",
+      );
     }
 
     const existingUser = await prisma.user.findUnique({
@@ -327,21 +429,33 @@ export class AuthService {
         });
         existingUser.provider = "GOOGLE";
 
-        this.audit.log("account_linked", this.ctx({
-          userId: existingUser.id,
-          email: normalizedEmail,
-          ...auditCtx,
-          metadata: {
-            method: "google_oauth",
-            previousProvider: "EMAIL",
-            newProvider: "GOOGLE",
-          },
-        }));
+        this.audit.log(
+          "account_linked",
+          this.ctx({
+            userId: existingUser.id,
+            email: normalizedEmail,
+            ...auditCtx,
+            metadata: {
+              method: "google_oauth",
+              previousProvider: "EMAIL",
+              newProvider: "GOOGLE",
+            },
+          }),
+        );
       }
 
       // Google OAuth users skip app-level MFA - Google handles their own MFA
-      this.audit.log("google_oauth_success", this.ctx({ userId: existingUser.id, email: normalizedEmail, ...auditCtx }));
-      return this.buildAuthResponse(existingUser);
+      this.audit.log(
+        "google_oauth_success",
+        this.ctx({
+          userId: existingUser.id,
+          email: normalizedEmail,
+          ...auditCtx,
+        }),
+      );
+      // Symmetric with credentials login: thread userAgentHash through so the
+      // JWT is bound to the browser UA when applicable (see utils/userAgent.ts).
+      return this.buildAuthResponse(existingUser, userAgentHash);
     }
 
     const randomPassword = Math.random().toString(36).slice(-16);
@@ -370,7 +484,10 @@ export class AuthService {
     // Send welcome email for new Google OAuth sign-ups
     await this.mail.sendWelcomeEmail(normalizedEmail, dto.name);
 
-    this.audit.log("google_oauth_success", this.ctx({ userId: user.id, email: normalizedEmail, ...auditCtx }));
+    this.audit.log(
+      "google_oauth_success",
+      this.ctx({ userId: user.id, email: normalizedEmail, ...auditCtx }),
+    );
 
     return this.buildAuthResponse(user, userAgentHash);
   }
@@ -379,24 +496,38 @@ export class AuthService {
   //  Email Verification Methods
   // ────────────────────────────────────────────────────────────────────
 
-  async verifyEmail(token: string, auditCtx?: AuditContext): Promise<VerifyEmailResponse> {
+  async verifyEmail(
+    token: string,
+    auditCtx?: AuditContext,
+  ): Promise<VerifyEmailResponse> {
     const record = await prisma.verificationToken.findUnique({
       where: { token },
     });
 
     if (!record) {
-      this.audit.log("email_verification_failed", this.ctx({ ...auditCtx, metadata: { reason: "token_not_found" } }));
+      this.audit.log(
+        "email_verification_failed",
+        this.ctx({ ...auditCtx, metadata: { reason: "token_not_found" } }),
+      );
       throw new NotFoundError("Verification token");
     }
 
     if (record.usedAt) {
-      this.audit.log("email_verification_failed", this.ctx({ ...auditCtx, metadata: { reason: "token_already_used" } }));
+      this.audit.log(
+        "email_verification_failed",
+        this.ctx({ ...auditCtx, metadata: { reason: "token_already_used" } }),
+      );
       throw new BadRequestError("This verification link has already been used");
     }
 
     if (record.expiresAt < new Date()) {
-      this.audit.log("email_verification_failed", this.ctx({ ...auditCtx, metadata: { reason: "token_expired" } }));
-      throw new BadRequestError("This verification link has expired. Please request a new one.");
+      this.audit.log(
+        "email_verification_failed",
+        this.ctx({ ...auditCtx, metadata: { reason: "token_expired" } }),
+      );
+      throw new BadRequestError(
+        "This verification link has expired. Please request a new one.",
+      );
     }
 
     await prisma.$transaction([
@@ -419,14 +550,21 @@ export class AuthService {
       await this.mail.sendWelcomeEmail(user.email, user.name);
     }
 
-    this.audit.log("email_verified", this.ctx({ userId: record.userId, ...auditCtx }));
+    this.audit.log(
+      "email_verified",
+      this.ctx({ userId: record.userId, ...auditCtx }),
+    );
 
     return {
-      message: "Your email has been verified successfully. You can now sign in.",
+      message:
+        "Your email has been verified successfully. You can now sign in.",
     };
   }
 
-  async resendVerification(dto: ForgotPasswordDto, auditCtx?: AuditContext): Promise<{ message: string; verificationUrl?: string }> {
+  async resendVerification(
+    dto: ForgotPasswordDto,
+    auditCtx?: AuditContext,
+  ): Promise<{ message: string; verificationUrl?: string }> {
     const normalizedEmail = dto.email.toLowerCase();
 
     const user = await prisma.user.findUnique({
@@ -436,7 +574,9 @@ export class AuthService {
 
     if (!user) {
       // Don't reveal whether the email exists
-      return { message: "If an account exists, a new verification link has been sent." };
+      return {
+        message: "If an account exists, a new verification link has been sent.",
+      };
     }
 
     if (user.emailVerified) {
@@ -460,7 +600,8 @@ export class AuthService {
       },
     });
 
-    const frontendUrl = process.env.FRONTEND_BASE_URL ?? "http://localhost:3000";
+    const frontendUrl =
+      process.env.FRONTEND_BASE_URL ?? "http://localhost:3000";
     const verificationUrl = `${frontendUrl}/verify-email?token=${token}`;
 
     console.log("\n─── Email Verification (Resend) ────────────────────────");
@@ -470,13 +611,21 @@ export class AuthService {
     console.log("──────────────────────────────────────────────────\n");
 
     // Send the new verification email
-    await this.mail.sendVerificationEmail(normalizedEmail, user.name ?? "there", verificationUrl);
+    await this.mail.sendVerificationEmail(
+      normalizedEmail,
+      user.name ?? "there",
+      verificationUrl,
+    );
 
-    this.audit.log("email_verification_resend", this.ctx({ userId: user.id, email: normalizedEmail, ...auditCtx }));
+    this.audit.log(
+      "email_verification_resend",
+      this.ctx({ userId: user.id, email: normalizedEmail, ...auditCtx }),
+    );
 
     return {
       message: "If an account exists, a new verification link has been sent.",
-      verificationUrl: process.env.NODE_ENV === "development" ? verificationUrl : undefined,
+      verificationUrl:
+        process.env.NODE_ENV === "development" ? verificationUrl : undefined,
     };
   }
 
@@ -484,7 +633,10 @@ export class AuthService {
   //  Password Reset Methods
   // ────────────────────────────────────────────────────────────────────
 
-  async forgotPassword(dto: ForgotPasswordDto, auditCtx?: AuditContext): Promise<ForgotPasswordResponse> {
+  async forgotPassword(
+    dto: ForgotPasswordDto,
+    auditCtx?: AuditContext,
+  ): Promise<ForgotPasswordResponse> {
     const normalizedEmail = dto.email.toLowerCase();
 
     const user = await prisma.user.findUnique({
@@ -495,7 +647,14 @@ export class AuthService {
     // Always return the same message regardless of whether the email exists
     // to prevent email enumeration
     if (!user) {
-      this.audit.log("forgot_password_requested", this.ctx({ email: normalizedEmail, ...auditCtx, metadata: { reason: "email_not_found" } }));
+      this.audit.log(
+        "forgot_password_requested",
+        this.ctx({
+          email: normalizedEmail,
+          ...auditCtx,
+          metadata: { reason: "email_not_found" },
+        }),
+      );
       return {
         message:
           "If an account with that email exists, a password reset link has been sent.",
@@ -519,7 +678,8 @@ export class AuthService {
       },
     });
 
-    const frontendUrl = process.env.FRONTEND_BASE_URL ?? "http://localhost:3000";
+    const frontendUrl =
+      process.env.FRONTEND_BASE_URL ?? "http://localhost:3000";
     const resetUrl = `${frontendUrl}/reset-password?token=${token}`;
 
     console.log("\n─── Password Reset ───────────────────────────────────");
@@ -529,9 +689,16 @@ export class AuthService {
     console.log("──────────────────────────────────────────────────\n");
 
     // Send password reset email
-    await this.mail.sendPasswordResetEmail(normalizedEmail, user.name, resetUrl);
+    await this.mail.sendPasswordResetEmail(
+      normalizedEmail,
+      user.name,
+      resetUrl,
+    );
 
-    this.audit.log("forgot_password_requested", this.ctx({ userId: user.id, email: normalizedEmail, ...auditCtx }));
+    this.audit.log(
+      "forgot_password_requested",
+      this.ctx({ userId: user.id, email: normalizedEmail, ...auditCtx }),
+    );
 
     return {
       message:
@@ -540,24 +707,40 @@ export class AuthService {
     };
   }
 
-  async resetPassword(dto: ResetPasswordDto, auditCtx?: AuditContext): Promise<ResetPasswordResponse> {
+  async resetPassword(
+    dto: ResetPasswordDto,
+    auditCtx?: AuditContext,
+  ): Promise<ResetPasswordResponse> {
     const record = await prisma.passwordResetToken.findUnique({
       where: { token: dto.token },
       select: { id: true, userId: true, expiresAt: true, usedAt: true },
     });
 
     if (!record) {
-      this.audit.log("password_reset_failed", this.ctx({ ...auditCtx, metadata: { reason: "token_not_found" } }));
+      this.audit.log(
+        "password_reset_failed",
+        this.ctx({ ...auditCtx, metadata: { reason: "token_not_found" } }),
+      );
       throw new NotFoundError("Password reset token");
     }
 
     if (record.usedAt) {
-      this.audit.log("password_reset_failed", this.ctx({ userId: record.userId, ...auditCtx, metadata: { reason: "token_already_used" } }));
+      this.audit.log(
+        "password_reset_failed",
+        this.ctx({
+          userId: record.userId,
+          ...auditCtx,
+          metadata: { reason: "token_already_used" },
+        }),
+      );
       throw new UnauthorizedError("This reset link has already been used");
     }
 
     if (record.expiresAt < new Date()) {
-      this.audit.log("password_reset_expired", this.ctx({ userId: record.userId, ...auditCtx }));
+      this.audit.log(
+        "password_reset_expired",
+        this.ctx({ userId: record.userId, ...auditCtx }),
+      );
       throw new UnauthorizedError("This reset link has expired");
     }
 
@@ -573,7 +756,14 @@ export class AuthService {
     for (const entry of recentHashes) {
       const isReused = await bcrypt.compare(dto.password, entry.hash);
       if (isReused) {
-        this.audit.log("password_reset_failed", this.ctx({ userId: record.userId, ...auditCtx, metadata: { reason: "password_reused" } }));
+        this.audit.log(
+          "password_reset_failed",
+          this.ctx({
+            userId: record.userId,
+            ...auditCtx,
+            metadata: { reason: "password_reused" },
+          }),
+        );
         throw new BadRequestError(
           `This password has been used recently. Please choose a different password.`,
         );
@@ -618,14 +808,22 @@ export class AuthService {
       });
     }
 
-    this.audit.log("password_reset_success", this.ctx({ userId: record.userId, ...auditCtx }));
+    this.audit.log(
+      "password_reset_success",
+      this.ctx({ userId: record.userId, ...auditCtx }),
+    );
 
     return {
-      message: "Your password has been reset successfully. You can now sign in with your new password.",
+      message:
+        "Your password has been reset successfully. You can now sign in with your new password.",
     };
   }
 
-  async updateProfile(userId: string, dto: UpdateProfileDto, auditCtx?: AuditContext): Promise<AuthUserPayload> {
+  async updateProfile(
+    userId: string,
+    dto: UpdateProfileDto,
+    auditCtx?: AuditContext,
+  ): Promise<AuthUserPayload> {
     const data: Record<string, unknown> = {};
     if (dto.name !== undefined) data.name = dto.name;
     if (dto.image !== undefined) data.image = dto.image;
@@ -647,7 +845,15 @@ export class AuthService {
       },
     });
 
-    this.audit.log("profile_updated", this.ctx({ userId, email: updated.email, ...auditCtx, metadata: { fields: Object.keys(data) } }));
+    this.audit.log(
+      "profile_updated",
+      this.ctx({
+        userId,
+        email: updated.email,
+        ...auditCtx,
+        metadata: { fields: Object.keys(data) },
+      }),
+    );
 
     return updated;
   }
@@ -756,7 +962,9 @@ export class AuthService {
 
     // ── Orders ──────────────────────────────────────────────────
     rows.push("=== ORDERS ===");
-    rows.push("Order ID,Status,Total Amount,Payment Status,Payment Provider,Created At");
+    rows.push(
+      "Order ID,Status,Total Amount,Payment Status,Payment Provider,Created At",
+    );
     for (const order of data.orders as Array<Record<string, unknown>>) {
       rows.push(
         [
@@ -773,7 +981,9 @@ export class AuthService {
       if (items && items.length > 0) {
         rows.push("  Items: Book Title,Quantity,Price");
         for (const item of items) {
-          rows.push(`  ${esc(item.bookTitle)},${esc(item.quantity)},${esc(item.price)}`);
+          rows.push(
+            `  ${esc(item.bookTitle)},${esc(item.quantity)},${esc(item.price)}`,
+          );
         }
       }
     }
@@ -798,9 +1008,7 @@ export class AuthService {
     rows.push("=== ACTIVITY LOG ===");
     rows.push("Event,IP Address,Created At");
     for (const log of data.activityLog as Array<Record<string, unknown>>) {
-      rows.push(
-        [esc(log.event), esc(log.ip), esc(log.createdAt)].join(","),
-      );
+      rows.push([esc(log.event), esc(log.ip), esc(log.createdAt)].join(","));
     }
 
     return rows.join("\n");
@@ -842,7 +1050,8 @@ export class AuthService {
     }
 
     // ── Import addresses ──────────────────────────────────────────
-    const importedOrders = (importData.orders as Array<Record<string, unknown>> | undefined) ?? [];
+    const importedOrders =
+      (importData.orders as Array<Record<string, unknown>> | undefined) ?? [];
     let addressCount = 0;
 
     // Collect unique addresses from orders
@@ -862,7 +1071,12 @@ export class AuthService {
       if (!addr || !addr.fullName || !addr.street || !addr.city) continue;
 
       const key = `${addr.fullName}|${addr.street}|${addr.city}|${addr.postalCode}`;
-      if (uniqueAddresses.some((a) => `${a.fullName}|${a.street}|${a.city}|${a.postalCode}` === key)) continue;
+      if (
+        uniqueAddresses.some(
+          (a) => `${a.fullName}|${a.street}|${a.city}|${a.postalCode}` === key,
+        )
+      )
+        continue;
 
       uniqueAddresses.push({
         fullName: String(addr.fullName ?? ""),
@@ -930,7 +1144,8 @@ export class AuthService {
       // Collect unique book titles from all order items
       const allTitles = new Set<string>();
       for (const order of importedOrders) {
-        const items = (order.items as Array<Record<string, unknown>> | undefined) ?? [];
+        const items =
+          (order.items as Array<Record<string, unknown>> | undefined) ?? [];
         for (const item of items) {
           if (item.bookTitle && typeof item.bookTitle === "string") {
             allTitles.add(item.bookTitle);
@@ -950,10 +1165,15 @@ export class AuthService {
         const titleToBookId = new Map(books.map((b) => [b.title, b.id]));
 
         for (const order of importedOrders) {
-          const items = (order.items as Array<Record<string, unknown>> | undefined) ?? [];
+          const items =
+            (order.items as Array<Record<string, unknown>> | undefined) ?? [];
 
           // Resolve item book IDs; skip if any book can't be found
-          const resolvedItems: Array<{ bookId: string; quantity: number; price: number }> = [];
+          const resolvedItems: Array<{
+            bookId: string;
+            quantity: number;
+            price: number;
+          }> = [];
           let allResolved = true;
 
           for (const item of items) {
@@ -975,15 +1195,37 @@ export class AuthService {
             continue;
           }
 
-          const totalAmount = Number(order.totalAmount ?? resolvedItems.reduce((sum, i) => sum + i.price * i.quantity, 0));
-          const validOrderStatuses = ["PENDING", "CONFIRMED", "SHIPPED", "DELIVERED", "CANCELLED"] as const;
-          const validPaymentStatuses = ["PENDING", "PAID", "FAILED", "REFUNDED"] as const;
+          const totalAmount = Number(
+            order.totalAmount ??
+              resolvedItems.reduce((sum, i) => sum + i.price * i.quantity, 0),
+          );
+          const validOrderStatuses = [
+            "PENDING",
+            "CONFIRMED",
+            "SHIPPED",
+            "DELIVERED",
+            "CANCELLED",
+          ] as const;
+          const validPaymentStatuses = [
+            "PENDING",
+            "PAID",
+            "FAILED",
+            "REFUNDED",
+          ] as const;
 
           const rawStatus = String(order.status ?? "PENDING").toUpperCase();
-          const rawPaymentStatus = String(order.paymentStatus ?? "PENDING").toUpperCase();
+          const rawPaymentStatus = String(
+            order.paymentStatus ?? "PENDING",
+          ).toUpperCase();
 
-          const safeStatus = validOrderStatuses.includes(rawStatus as any) ? rawStatus : "PENDING";
-          const safePaymentStatus = validPaymentStatuses.includes(rawPaymentStatus as any) ? rawPaymentStatus : "PENDING";
+          const safeStatus = validOrderStatuses.includes(rawStatus as any)
+            ? rawStatus
+            : "PENDING";
+          const safePaymentStatus = validPaymentStatuses.includes(
+            rawPaymentStatus as any,
+          )
+            ? rawPaymentStatus
+            : "PENDING";
           const paymentProvider = String(order.paymentProvider ?? "IMPORT");
           const transactionUuid = crypto.randomUUID();
 
@@ -1026,14 +1268,45 @@ export class AuthService {
     }
 
     if (skippedOrderCount > 0) {
-      parts.push(`${skippedOrderCount} order(s) skipped (books not found in catalog)`);
+      parts.push(
+        `${skippedOrderCount} order(s) skipped (books not found in catalog)`,
+      );
     }
 
-    const summary = parts.length > 0
-      ? `Data imported successfully: ${parts.join("; ")}.`
-      : "Data imported successfully. No new information to restore from this export.";
+    const summary =
+      parts.length > 0
+        ? `Data imported successfully: ${parts.join("; ")}.`
+        : "Data imported successfully. No new information to restore from this export.";
 
     return { message: summary };
+  }
+
+  // ────────────────────────────────────────────────────────────────────
+  //  Session Revocation
+  // ────────────────────────────────────────────────────────────────────
+
+  /**
+   * Revoke all active sessions by incrementing tokenVersion.
+   * This invalidates every JWT issued before this call.
+   * The current user will also be signed out on their next request.
+   */
+  async revokeSessions(
+    userId: string,
+    auditCtx?: AuditContext,
+  ): Promise<{ message: string }> {
+    await prisma.user.update({
+      where: { id: userId },
+      data: {
+        tokenVersion: { increment: 1 },
+      },
+    });
+
+    this.audit.log("sessions_revoked", this.ctx({ userId, ...auditCtx }));
+
+    return {
+      message:
+        "All sessions have been revoked. You will need to sign in again.",
+    };
   }
 
   async getOrders(userId: string) {
@@ -1086,7 +1359,11 @@ export class AuthService {
   //  Change Password (Step-Up Authentication)
   // ────────────────────────────────────────────────────────────────────
 
-  async changePassword(userId: string, dto: ChangePasswordDto, auditCtx?: AuditContext): Promise<{ message: string }> {
+  async changePassword(
+    userId: string,
+    dto: ChangePasswordDto,
+    auditCtx?: AuditContext,
+  ): Promise<{ message: string }> {
     const user = await prisma.user.findUnique({
       where: { id: userId },
       select: { password: true },
@@ -1097,16 +1374,28 @@ export class AuthService {
     }
 
     // ─── Step-up: verify current password ───────────────────────────
-    const isCurrentValid = await bcrypt.compare(dto.currentPassword, user.password);
+    const isCurrentValid = await bcrypt.compare(
+      dto.currentPassword,
+      user.password,
+    );
     if (!isCurrentValid) {
-      this.audit.log("password_change_failed", this.ctx({ userId, ...auditCtx, metadata: { reason: "invalid_current_password" } }));
+      this.audit.log(
+        "password_change_failed",
+        this.ctx({
+          userId,
+          ...auditCtx,
+          metadata: { reason: "invalid_current_password" },
+        }),
+      );
       throw new UnauthorizedError("Current password is incorrect.");
     }
 
     // ─── Check new password is different from current ───────────────
     const isSamePassword = await bcrypt.compare(dto.newPassword, user.password);
     if (isSamePassword) {
-      throw new BadRequestError("New password must be different from your current password.");
+      throw new BadRequestError(
+        "New password must be different from your current password.",
+      );
     }
 
     // ─── Check password reuse history ───────────────────────────────
@@ -1119,7 +1408,14 @@ export class AuthService {
     for (const entry of recentHashes) {
       const isReused = await bcrypt.compare(dto.newPassword, entry.hash);
       if (isReused) {
-        this.audit.log("password_change_failed", this.ctx({ userId, ...auditCtx, metadata: { reason: "password_reused" } }));
+        this.audit.log(
+          "password_change_failed",
+          this.ctx({
+            userId,
+            ...auditCtx,
+            metadata: { reason: "password_reused" },
+          }),
+        );
         throw new BadRequestError(
           "This password has been used recently. Please choose a different password.",
         );
@@ -1159,7 +1455,10 @@ export class AuthService {
 
     this.audit.log("password_changed", this.ctx({ userId, ...auditCtx }));
 
-    return { message: "Password changed successfully. Please sign in with your new password." };
+    return {
+      message:
+        "Password changed successfully. Please sign in with your new password.",
+    };
   }
 
   async me(user: AuthUserPayload): Promise<AuthUserPayload> {
@@ -1188,14 +1487,23 @@ export class AuthService {
   // ────────────────────────────────────────────────────────────────────
 
   /** Step 2 of login: verify TOTP or backup code after password check */
-  async verifyMfaLogin(dto: MfaVerifyLoginDto, auditCtx?: AuditContext, userAgentHash?: string): Promise<AuthTokensResponse> {
+  async verifyMfaLogin(
+    dto: MfaVerifyLoginDto,
+    auditCtx?: AuditContext,
+    userAgentHash?: string,
+  ): Promise<AuthTokensResponse> {
     let payload: { id: string; email: string };
     try {
       payload = verifyMfaChallengeToken(dto.mfaToken);
     } catch (err: unknown) {
       // Catch JWT errors (expired token, invalid signature, etc.) and throw a clean 401
-      if (err instanceof Error && (err.name === 'TokenExpiredError' || err.name === 'JsonWebTokenError')) {
-        throw new UnauthorizedError('MFA session expired. Please sign in again.');
+      if (
+        err instanceof Error &&
+        (err.name === "TokenExpiredError" || err.name === "JsonWebTokenError")
+      ) {
+        throw new UnauthorizedError(
+          "MFA session expired. Please sign in again.",
+        );
       }
       throw err;
     }
@@ -1215,28 +1523,61 @@ export class AuthService {
     });
 
     if (!user || !user.isMfaEnabled) {
-      this.audit.log("mfa_verify_failed", this.ctx({ ...auditCtx, metadata: { reason: "mfa_not_enabled" } }));
+      this.audit.log(
+        "mfa_verify_failed",
+        this.ctx({ ...auditCtx, metadata: { reason: "mfa_not_enabled" } }),
+      );
       throw new UnauthorizedError("MFA is not enabled for this account");
     }
 
     const isBackup = this.mfaService.isBackupCode(dto.totpCode);
 
     if (isBackup) {
-      const valid = await this.mfaService.verifyAndConsumeBackupCode(user.id, dto.totpCode);
+      const valid = await this.mfaService.verifyAndConsumeBackupCode(
+        user.id,
+        dto.totpCode,
+      );
       if (!valid) {
-        this.audit.log("mfa_verify_failed", this.ctx({ userId: user.id, email: user.email, ...auditCtx, metadata: { method: "backup_code", reason: "invalid" } }));
+        this.audit.log(
+          "mfa_verify_failed",
+          this.ctx({
+            userId: user.id,
+            email: user.email,
+            ...auditCtx,
+            metadata: { method: "backup_code", reason: "invalid" },
+          }),
+        );
         throw new UnauthorizedError("Invalid backup code");
       }
     } else {
       // TOTP verification (decrypt the secret first - handles legacy plain-text too)
-      const valid = this.mfaService.verifyCode(getTotpSecret(user.totpSecret), dto.totpCode);
+      const valid = this.mfaService.verifyCode(
+        getTotpSecret(user.totpSecret),
+        dto.totpCode,
+      );
       if (!valid) {
-        this.audit.log("mfa_verify_failed", this.ctx({ userId: user.id, email: user.email, ...auditCtx, metadata: { method: "totp", reason: "invalid" } }));
+        this.audit.log(
+          "mfa_verify_failed",
+          this.ctx({
+            userId: user.id,
+            email: user.email,
+            ...auditCtx,
+            metadata: { method: "totp", reason: "invalid" },
+          }),
+        );
         throw new UnauthorizedError("Invalid verification code");
       }
     }
 
-    this.audit.log("mfa_verify_success", this.ctx({ userId: user.id, email: user.email, ...auditCtx, metadata: { method: isBackup ? "backup_code" : "totp" } }));
+    this.audit.log(
+      "mfa_verify_success",
+      this.ctx({
+        userId: user.id,
+        email: user.email,
+        ...auditCtx,
+        metadata: { method: isBackup ? "backup_code" : "totp" },
+      }),
+    );
 
     return this.buildAuthResponse({
       id: user.id,
@@ -1285,7 +1626,10 @@ export class AuthService {
       // Allow using a backup code to enable, or the correct TOTP
       const isBackup = this.mfaService.isBackupCode(dto.totpCode);
       if (!isBackup) {
-        const valid = this.mfaService.verifyCode(getTotpSecret(user.totpSecret), dto.totpCode);
+        const valid = this.mfaService.verifyCode(
+          getTotpSecret(user.totpSecret),
+          dto.totpCode,
+        );
         if (!valid) {
           throw new UnauthorizedError("Invalid verification code");
         }
@@ -1305,10 +1649,18 @@ export class AuthService {
     // Generate 10 one-time backup codes
     const backupCodes = await this.mfaService.generateBackupCodes(userId);
 
-    this.audit.log("mfa_enabled", this.ctx({ userId, ...auditCtx, metadata: { backupCodeCount: backupCodes.length } }));
+    this.audit.log(
+      "mfa_enabled",
+      this.ctx({
+        userId,
+        ...auditCtx,
+        metadata: { backupCodeCount: backupCodes.length },
+      }),
+    );
 
     return {
-      message: "MFA has been enabled successfully. Save your backup codes in a safe place.",
+      message:
+        "MFA has been enabled successfully. Save your backup codes in a safe place.",
       backupCodes,
     };
   }
@@ -1332,10 +1684,16 @@ export class AuthService {
     let valid = false;
 
     if (isBackup) {
-      valid = await this.mfaService.verifyAndConsumeBackupCode(userId, dto.totpCode);
+      valid = await this.mfaService.verifyAndConsumeBackupCode(
+        userId,
+        dto.totpCode,
+      );
     } else {
       // Decrypt the secret before verifying (handles legacy plain-text too)
-      valid = this.mfaService.verifyCode(getTotpSecret(user.totpSecret), dto.totpCode);
+      valid = this.mfaService.verifyCode(
+        getTotpSecret(user.totpSecret),
+        dto.totpCode,
+      );
     }
 
     if (!valid) {
@@ -1362,7 +1720,11 @@ export class AuthService {
   //  Backup Code Methods
   // ────────────────────────────────────────────────────────────────────
 
-  async regenerateBackupCodes(userId: string, password: string, auditCtx?: AuditContext): Promise<BackupCodesResponse> {
+  async regenerateBackupCodes(
+    userId: string,
+    password: string,
+    auditCtx?: AuditContext,
+  ): Promise<BackupCodesResponse> {
     // ─── Step-up: verify the user's password before allowing regeneration ──
     const user = await prisma.user.findUnique({
       where: { id: userId },
@@ -1380,7 +1742,10 @@ export class AuthService {
 
     const codes = await this.mfaService.generateBackupCodes(userId);
 
-    this.audit.log("mfa_backup_codes_regenerated", this.ctx({ userId, ...auditCtx, metadata: { count: codes.length } }));
+    this.audit.log(
+      "mfa_backup_codes_regenerated",
+      this.ctx({ userId, ...auditCtx, metadata: { count: codes.length } }),
+    );
 
     return {
       codes,
@@ -1398,10 +1763,22 @@ export class AuthService {
   /**
    * Build an auth response with tokenVersion embedded in the JWT.
    * The caller is responsible for including the latest tokenVersion in the user object.
+   *
+   * `userAgentHash` may be passed either as the second argument (preferred) or
+   * already embedded on the user object (legacy verifyMfaLogin call site). The
+   * `??` fallback prefers the explicit second argument when present and falls
+   * back to the hash already on `user`, so we never silently sign an
+   * unbound JWT when the caller intended to bind it.
    */
-  private buildAuthResponse(user: AuthUserPayload, userAgentHash?: string): AuthTokensResponse {
+  private buildAuthResponse(
+    user: AuthUserPayload,
+    userAgentHash?: string,
+  ): AuthTokensResponse {
     return {
-      accessToken: signAccessToken({ ...user, userAgentHash }),
+      accessToken: signAccessToken({
+        ...user,
+        userAgentHash: userAgentHash ?? user.userAgentHash,
+      }),
       user,
     };
   }
