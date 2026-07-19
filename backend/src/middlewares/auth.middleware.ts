@@ -1,8 +1,8 @@
 import { Request, Response, NextFunction } from "express";
-import crypto from "crypto";
 import { verifyAccessToken } from "../utils/jwt";
 import { AuthUserPayload } from "../types/auth.types";
 import prisma from "../lib/prisma";
+import { isBrowserUA, userAgentHash } from "../utils/userAgent";
 
 type AuthenticatedRequest = Request & { user?: AuthUserPayload };
 
@@ -11,13 +11,6 @@ function extractBearerToken(header?: string): string | null {
   const [scheme, token] = header.split(" ");
   if (scheme !== "Bearer" || !token) return null;
   return token;
-}
-
-/** Hash the User-Agent header for session binding comparison */
-function hashUserAgent(req: Request): string | undefined {
-  const ua = req.headers["user-agent"];
-  if (!ua) return undefined;
-  return crypto.createHash("sha256").update(ua as string).digest("hex");
 }
 
 export async function authMiddleware(
@@ -47,9 +40,25 @@ export async function authMiddleware(
     }
 
     // ─── Session binding: verify User-Agent hash matches ──────────
+    // Only enforce when BOTH the JWT-payload UA and the incoming request UA
+    // look like real browser sessions. This tolerates BFF re-fetch patterns
+    // (NextAuth `authorize()` and `jwt` callbacks run in Node and use a
+    // `node`-style or empty User-Agent) while still detecting a stolen-token
+    // replay from a different browser/device.
+    //
+    // Symmetric with the controller layer: non-browser logins never receive a
+    // userAgentHash in the first place (see utils/userAgent.ts), so when the
+    // outer `if (payload.userAgentHash)` matches the token was definitely
+    // issued from a browser — and the check below becomes the right gate.
     if (payload.userAgentHash) {
-      const currentHash = hashUserAgent(req);
-      if (currentHash && currentHash !== payload.userAgentHash) {
+      const currentHash = userAgentHash(req);
+      const incomingLooksLikeBrowser = isBrowserUA(req.headers["user-agent"]);
+
+      if (
+        incomingLooksLikeBrowser &&
+        currentHash &&
+        currentHash !== payload.userAgentHash
+      ) {
         res.status(401).json({
           success: false,
           message: "Session invalid: device or browser mismatch. Please sign in again.",

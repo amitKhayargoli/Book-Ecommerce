@@ -3,7 +3,13 @@ import { AuthUserPayload } from "../types/auth.types";
 
 type AuthenticatedRequest = Request & { user?: AuthUserPayload };
 
-export function adminMiddleware(
+/**
+ * Middleware that prevents admin users from accessing customer-specific
+ * endpoints (cart, checkout, wishlist, addresses, orders, etc.).
+ *
+ * Must be used AFTER `authMiddleware` so that `req.user` is populated.
+ */
+export function customerMiddleware(
   req: Request,
   res: Response,
   next: NextFunction,
@@ -17,8 +23,11 @@ export function adminMiddleware(
     return;
   }
 
-  if (user.role !== "ADMIN") {
-    res.status(403).json({ success: false, message: "Admin access required" });
+  if (user.role === "ADMIN") {
+    res.status(403).json({
+      success: false,
+      message: "Admins cannot access customer-specific endpoints.",
+    });
     return;
   }
 

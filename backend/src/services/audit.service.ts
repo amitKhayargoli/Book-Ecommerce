@@ -26,7 +26,8 @@ export type AuditEvent =
   | "address_imported"
   | "orders_imported"
   | "password_change_failed"
-  | "password_changed";
+  | "password_changed"
+  | "sessions_revoked";
 
 export interface AuditContext {
   userId?: string;

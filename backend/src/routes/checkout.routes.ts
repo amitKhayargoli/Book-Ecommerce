@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { CheckoutController } from "../controllers/checkout.controller";
 import { authMiddleware } from "../middlewares/auth.middleware";
+import { customerMiddleware } from "../middlewares/customer.middleware";
 import { validate } from "../middlewares/validate.middleware";
 import { asyncHandler } from "../middlewares/asyncHandler";
 import {
@@ -14,6 +15,7 @@ const controller = new CheckoutController();
 router.post(
   "/khalti/initiate",
   authMiddleware,
+  customerMiddleware,
   validate(KhaltiInitiateSchema),
   asyncHandler(controller.initiateKhalti),
 );

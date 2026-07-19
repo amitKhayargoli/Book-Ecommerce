@@ -45,7 +45,7 @@ export class MfaService {
   async generateBackupCodes(userId: string): Promise<string[]> {
     // Delete any existing unused backup codes for this user
     await prisma.backupCode.deleteMany({
-      where: { userId, usedAt: null },
+      where: { userId, isUsed: false },
     });
 
     const rawCodes: string[] = [];
@@ -77,7 +77,7 @@ export class MfaService {
     const normalizedCode = rawCode.toLowerCase();
 
     const storedCodes = await prisma.backupCode.findMany({
-      where: { userId, usedAt: null },
+      where: { userId, isUsed: false },
       select: { id: true, code: true },
     });
 
@@ -86,7 +86,7 @@ export class MfaService {
       if (isValid) {
         await prisma.backupCode.update({
           where: { id: stored.id },
-          data: { usedAt: new Date() },
+          data: { isUsed: true },
         });
         return true;
       }
@@ -100,7 +100,7 @@ export class MfaService {
    */
   async getRemainingBackupCodes(userId: string): Promise<number> {
     return prisma.backupCode.count({
-      where: { userId, usedAt: null },
+      where: { userId, isUsed: false },
     });
   }
 }
